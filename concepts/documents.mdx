@@ -524,6 +524,35 @@ export default class User extends BaseDocument {
   - Use `rowsOnly: true` when you don't need metadata
 </Tip>
 
+## Document Parsing Utility
+
+The `parseDocument` function processes document data and renders markdown fields based on the document structure definition.
+
+```javascript
+import { parseDocument } from 'loopar';
+
+// Parse a document and render its markdown fields
+const entity = 'Article';
+const rawDoc = {
+  id: 1,
+  title: 'My Article',
+  content: '## Hello\n\nThis is **markdown** content.',
+  description: 'A regular field'
+};
+
+const parsedDoc = parseDocument(entity, rawDoc);
+// parsedDoc.content is now rendered HTML
+// parsedDoc.description remains unchanged
+```
+
+The function:
+- Reads the document structure from the entity configuration
+- Identifies fields with `MARKDOWN_INPUT` element type
+- Renders markdown content to HTML using the markdown renderer
+- Returns the processed document
+
+This is useful when you need to display document data in the client with pre-rendered markdown fields.
+
 ## Next Steps
 
 <CardGroup cols={2}>

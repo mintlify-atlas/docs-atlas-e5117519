@@ -471,6 +471,32 @@ const users = await loopar.getList('User', {
 console.log(`Found ${users.pagination.totalRecords} users`);
 ```
 
+## Additional Exports
+
+### SystemController
+
+Extended controller for system-level operations. Inherits from `BaseController` with additional methods for system management tasks.
+
+```javascript
+import { SystemController } from 'loopar';
+
+export default class MySystemController extends SystemController {
+  // System-level operations
+}
+```
+
+Defined at `packages/loopar/apps/core/modules/system/controllers/system/system-controller.js`.
+
+### CoreInstaller
+
+Internal class used for the framework installation wizard. Handles initial setup, database configuration, and site creation during first-time installation.
+
+```javascript
+import { CoreInstaller } from 'loopar';
+```
+
+This is primarily used internally by Loopar and not typically extended by applications.
+
 ## Related
 
 - [BaseDocument](/api/base-document) - Document class methods

@@ -44,6 +44,30 @@ export const themes = [
 ];
 ```
 
+### Show Colors Helper
+
+The `showColors` export provides Tailwind CSS class mappings for common colors:
+
+```javascript title="Using showColors"
+import { showColors } from "loopar";
+
+console.log(showColors);
+// {
+//   red: 'bg-red-500',
+//   blue: 'bg-blue-500',
+//   green: 'bg-green-500',
+//   yellow: 'bg-yellow-500',
+//   purple: 'bg-purple-500',
+//   zinc: 'bg-gray-500',
+//   orange: 'bg-orange-500'
+// }
+
+// Use in components
+const colorClass = showColors.blue; // 'bg-blue-500'
+```
+
+This is useful for programmatically applying Tailwind color classes in components.
+
 ## Generating Theme CSS
 
 Dynamically generate theme CSS with light and dark mode support:
