@@ -1,0 +1,522 @@
+---
+title: Layout Components
+description: Structure your application with containers, rows, columns, cards, and more
+---
+
+Layout components provide the structural foundation for your Loopar applications. They handle responsive design, spacing, alignment, and visual organization.
+
+## Container
+
+The `container` component is the main wrapper for page content. It provides background styling and houses droppable areas.
+
+```jsx packages/loopar/src/components/container.jsx
+export default function Container(props){
+  const { designerMode, designerModeType } = useDesigner();
+  const newProps = {...props};
+  delete newProps.style;
+
+  return (
+    <div   
+      {...props}
+      className={!designerMode || designerModeType == "preview" ? "min-h-page bg-cover bg-center bg-fixed" : ""}
+    >
+      <Droppable {...newProps}/>
+    </div>
+  );
+}
+```
+
+### Usage
+
+```json
+{
+  "element": "container",
+  "data": {
+    "key": "main-container",
+    "background_image": "/path/to/image.jpg",
+    "background_color": "rgba(0,0,0,0.1)"
+  },
+  "elements": []
+}
+```
+
+<ParamField path="data.background_image" type="string">
+  Background image URL
+</ParamField>
+
+<ParamField path="data.background_color" type="string">
+  Background color (supports rgba)
+</ParamField>
+
+## Row
+
+The `row` component creates responsive grid layouts with configurable columns. It uses CSS Grid for dynamic column sizing.
+
+```jsx packages/loopar/src/components/row.jsx
+export default function Row(props) {
+  const { setElements, set } = ComponentDefaults(props);
+  const data = props.data;
+  const [layout, setLayout] = useState(loopar.utils.JSONparse(data.layout, [50, 50]));
+  const [cols, setCols] = useState(props.elements || []);
+  
+  return (
+    <RowContextProvider
+      colPadding={config.col_padding}
+      colMargin={config.col_margin}
+      spacing={_spacing}
+    >
+      <div className={cn("flex flex-col", rowHeight)}>
+        <Droppable
+          {...props}
+          elements={cols}
+          className={cn(
+            "@container",
+            "grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 w-full",
+            "grid-container dynamic box-border",
+            rowHeight,
+            data.class,
+          )}
+          style={{
+            "--gap-solver": `${gapSolver}rem`,
+            "--column-layout": `calc(${layoutAdjust.join("% - var(--gap-solver)) calc(")}% - var(--gap-solver))`,
+            gap: `${_spacing}rem`,
+            ...props.style,
+          }}
+        />
+      </div>
+    </RowContextProvider>
+  );
+}
+```
+
+### Layout Options
+
+<Tabs>
+  <Tab title="Two Columns">
+    ```json
+    {
+      "element": "row",
+      "data": {
+        "layout": "[50, 50]",
+        "spacing": 2
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Three Columns">
+    ```json
+    {
+      "element": "row",
+      "data": {
+        "layout": "[33.33, 33.33, 33.33]",
+        "spacing": 3
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Asymmetric">
+    ```json
+    {
+      "element": "row",
+      "data": {
+        "layout": "[25, 75]",
+        "spacing": 1
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Properties
+
+<ParamField path="data.layout" type="array" required>
+  Array of column widths (percentages). Example: `[50, 50]` for equal columns
+</ParamField>
+
+<ParamField path="data.spacing" type="number" default={1}>
+  Gap between columns in rem (0-6)
+</ParamField>
+
+<ParamField path="data.col_padding" type="string" default="p-0">
+  Padding for all columns. Options: `p-0` through `p-9`
+</ParamField>
+
+<ParamField path="data.horizontal_alignment" type="string" default="left">
+  Horizontal alignment: `left`, `center`, `right`
+</ParamField>
+
+<ParamField path="data.vertical_alignment" type="string" default="top">
+  Vertical alignment: `top`, `center`, `bottom`
+</ParamField>
+
+<ParamField path="data.row_height" type="string" default="auto">
+  Row height: `auto`, `100` (100vh), `75`, `50`, `25`
+</ParamField>
+
+<ParamField path="data.full_height" type="boolean" default={false}>
+  Override height to 100vh (full screen)
+</ParamField>
+
+### Meta Fields
+
+```javascript packages/loopar/src/components/row.jsx
+Row.metaFields = () => {
+  return [
+    {
+      group: "layout",
+      elements: {
+        layout: {
+          element: SELECT,
+          data: {
+            label: "Columns",
+            options: gridLayouts.map(l => `[${l}]`),
+            default_value: "[50, 50]",
+          },
+        },
+        spacing: {
+          element: SELECT,
+          data: {
+            label: "Gap",
+            options: [0, 1, 2, 3, 4, 5, 6],
+            default_value: 1,
+            description: "Spacing between columns in rem.",
+          },
+        },
+      },
+    },
+  ];
+};
+```
+
+## Col
+
+The `col` component represents a column within a row. It automatically adjusts based on the row's layout.
+
+```jsx packages/loopar/src/components/col.jsx
+export default function Col(props) {
+  const { designerMode, designing } = useDesigner();
+  const { colPadding } = useRowContext();
+  const data = props.data || {};
+
+  const className = cn(
+    (!designerMode || !designing) && colPadding, 
+    props.className, 
+    'h-full', 
+    data?.class
+  );
+  
+  return (
+    <Droppable
+      {...props}
+      className={className}
+    />
+  );
+}
+
+Col.dontHaveMetaElements = ["label", "text"];
+Col.droppable = true;
+```
+
+### Usage
+
+```json
+{
+  "element": "col",
+  "data": {
+    "key": "col-1",
+    "class": "bg-gray-100"
+  },
+  "elements": [
+    // Child components
+  ]
+}
+```
+
+## Card
+
+The `card` component creates a material design card with header, content, and footer sections.
+
+```jsx packages/loopar/src/components/card.jsx
+export default function Card(props) {
+  const data = props.data || {};
+
+  return (
+    <CardHover {...loopar.utils.renderizableProps(props)}>
+      <CardHeader>
+        <CardTitle>{data.label}</CardTitle>
+        {data.description && <CardDescription>{data.description}</CardDescription>}
+      </CardHeader>
+      <Droppable
+        Component={CardContent}
+        {...props}
+      />
+      {props.footer && (
+        <CardFooter className="flex justify-between">
+          {props.footer}
+        </CardFooter>
+      )}
+    </CardHover>
+  )
+}
+
+function CardHover(props){
+  return (
+    <CardComponent 
+      className={cn(props.className, "transition-all hover:shadow-lg h-full")}
+    >
+      {props.children}
+    </CardComponent>
+  )
+}
+```
+
+### Properties
+
+<ParamField path="data.label" type="string" required>
+  Card title
+</ParamField>
+
+<ParamField path="data.description" type="string">
+  Card description (subtitle)
+</ParamField>
+
+<ParamField path="footer" type="ReactNode">
+  Footer content
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "card",
+  "data": {
+    "label": "User Profile",
+    "description": "Manage your account settings",
+    "key": "profile-card"
+  },
+  "elements": [
+    {
+      "element": "input",
+      "data": {
+        "label": "Username",
+        "name": "username"
+      }
+    }
+  ]
+}
+```
+
+## Banner
+
+The `banner` component creates hero sections with background images, animations, and overlays.
+
+```jsx packages/loopar/src/components/banner.jsx
+function Banner() {
+  const {props} = usePreassembledContext()
+  const data = props.data || {};
+
+  const alignment = {
+    center: "justify-center items-center",
+    start: "justify-start items-start",
+    end: "justify-end items-end",
+  }[data?.alling || "center"];
+  
+  return (
+    <div className={cn(props.className.split("transition-all")[0], "p-0 relative min-h-100")}>
+      <Cover
+        className="h-full w-full absolute inset-0 z-0"
+        style={props.style}
+        animation={data.animation}
+      />
+      <Content  
+        elements={props.elements}
+        data={{key: data.key}} 
+        className={cn(alignment, data.class)}
+        isActive={isActive}
+      />
+    </div>
+  )
+}
+```
+
+### Properties
+
+<ParamField path="data.alling" type="string" default="center">
+  Content alignment: `center`, `start`, `end`
+</ParamField>
+
+<ParamField path="data.animation" type="string">
+  Animation type for entrance effect
+</ParamField>
+
+<ParamField path="data.background_image" type="string">
+  Banner background image URL
+</ParamField>
+
+<ParamField path="data.color_overlay" type="string">
+  Overlay color (rgba format)
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "banner",
+  "data": {
+    "key": "hero-banner",
+    "label": "Welcome to Loopar",
+    "text": "Build applications faster",
+    "alling": "center",
+    "background_image": "https://example.com/hero.jpg",
+    "color_overlay": "rgba(0,0,0,0.5)"
+  }
+}
+```
+
+## Tabs
+
+The `tabs` component creates a tabbed interface with dynamic tab management.
+
+```jsx packages/loopar/src/components/tabs.jsx
+export default function MetaTabs(props){
+  const {data, setElements} = ComponentDefaults(props);
+  
+  return (
+    <div className="p-2 my-3 border border-separate" id={data.id}>
+      {data.label && <h4 className="p-2">{data.label}</h4>}
+      <TabFn
+        id={data.id || data.name || data.key}
+        data={data}
+        elementsDict={elementsDict}
+        setElements={setElements}
+        canCustomize={props.canCustomize}
+      />
+    </div>
+  )
+}
+
+MetaTabs.requires = ["tab"]
+```
+
+### Properties
+
+<ParamField path="data.label" type="string">
+  Tabs container label
+</ParamField>
+
+<ParamField path="canCustomize" type="boolean" default={true}>
+  Allow adding/removing tabs in designer
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "tabs",
+  "data": {
+    "key": "settings-tabs",
+    "label": "Settings"
+  },
+  "elements": [
+    {
+      "element": "tab",
+      "data": {
+        "key": "general",
+        "label": "General"
+      },
+      "elements": []
+    },
+    {
+      "element": "tab",
+      "data": {
+        "key": "security",
+        "label": "Security"
+      },
+      "elements": []
+    }
+  ]
+}
+```
+
+## Section
+
+The `section` component groups related content with optional styling.
+
+### Usage
+
+```json
+{
+  "element": "section",
+  "data": {
+    "key": "about-section",
+    "class": "py-10 bg-white"
+  },
+  "elements": []
+}
+```
+
+## Panel
+
+The `panel` component creates collapsible content areas.
+
+### Usage
+
+```json
+{
+  "element": "panel",
+  "data": {
+    "key": "details-panel",
+    "label": "Advanced Options",
+    "collapsed": false
+  },
+  "elements": []
+}
+```
+
+## Component Defaults
+
+All layout components use the `ComponentDefaults` helper:
+
+```javascript packages/loopar/src/components/base/ComponentDefaults.jsx
+export function ComponentDefaults(props) {
+  const data = props.data || {};
+  const {updateElement, updateElements, designerMode} = useDesigner();
+
+  const set = (key, value) => {
+    if (!designerMode) return;
+    const newData = {...data};
+    if (typeof key == "object") {
+      Object.keys(key).forEach((k) => {
+        newData[k] = key[k];
+      });
+    } else {
+      newData[key] = value;
+    }
+
+    setTimeout(() => {
+      updateElement(data.key, JSON.parse(JSON.stringify(newData), true, false, true))
+    }, 100);
+  }
+
+  return {
+    getSrc,
+    getTextSize,
+    getTextAlign,
+    set,
+    setElements,
+    getSize,
+    data
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Form Components" icon="input-text" href="/components/forms">
+    Learn about inputs, selects, and form elements
+  </Card>
+  <Card title="Data Display" icon="chart-line" href="/components/data-display">
+    Display data with tables and dialogs
+  </Card>
+</CardGroup>

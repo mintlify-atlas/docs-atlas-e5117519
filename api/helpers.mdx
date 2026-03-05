@@ -1,0 +1,944 @@
+---
+title: 'Helper Utilities'
+description: 'String manipulation, data transformation, and general utility functions for the Loopar Framework'
+---
+
+# Helper Utilities
+
+The helper module provides a comprehensive collection of utility functions for string manipulation, data transformation, validation, and formatting. Located at `packages/loopar/core/global/helper.js`.
+
+## String Manipulation
+
+### Capitalize
+
+Capitalizes the first character of a string.
+
+```javascript
+import { Capitalize } from 'loopar';
+
+const result = Capitalize('hello world');
+// Output: 'Hello world'
+```
+
+<ParamField path="text" type="string" required>
+  The text to capitalize
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The capitalized string
+</ResponseField>
+
+---
+
+### UPPERCASE
+
+Converts a string to uppercase.
+
+```javascript
+import { UPPERCASE } from 'loopar';
+
+const result = UPPERCASE('hello');
+// Output: 'HELLO'
+```
+
+<ParamField path="text" type="string" required>
+  The text to convert to uppercase
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The uppercase string
+</ResponseField>
+
+---
+
+### lowercase
+
+Converts a string to lowercase.
+
+```javascript
+import { lowercase } from 'loopar';
+
+const result = lowercase('HELLO');
+// Output: 'hello'
+```
+
+<ParamField path="text" type="string" required>
+  The text to convert to lowercase
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The lowercase string
+</ResponseField>
+
+---
+
+### camelCase
+
+Converts a string to camelCase format.
+
+```javascript
+import { camelCase } from 'loopar';
+
+const result = camelCase('hello-world');
+// Output: 'helloWorld'
+
+const result2 = camelCase('hello_world');
+// Output: 'helloWorld'
+```
+
+<ParamField path="str" type="string" required>
+  The string to convert (supports hyphen and underscore separators)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The camelCase formatted string
+</ResponseField>
+
+---
+
+### decamelize
+
+Converts a camelCase string to a delimited format.
+
+```javascript
+import { decamelize } from 'loopar';
+
+const result = decamelize('helloWorld');
+// Output: 'hello-world'
+
+const result2 = decamelize('dataForUSACounties', { 
+  separator: '_', 
+  preserveConsecutiveUppercase: true 
+});
+// Output: 'data_for_USA_counties'
+```
+
+<ParamField path="text" type="string" required>
+  The camelCase text to convert
+</ParamField>
+
+<ParamField path="options" type="object">
+  Configuration options
+  
+  <ParamField path="separator" type="string" default="-">
+    The separator character to use
+  </ParamField>
+  
+  <ParamField path="preserveConsecutiveUppercase" type="boolean" default={false}>
+    Whether to preserve consecutive uppercase letters (e.g., "USA" stays as "USA")
+  </ParamField>
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The delimited string
+</ResponseField>
+
+---
+
+### kebabToPascal
+
+Converts a kebab-case string to PascalCase.
+
+```javascript
+import { kebabToPascal } from 'loopar';
+
+const result = kebabToPascal('hello-world-example');
+// Output: 'HelloWorldExample'
+```
+
+<ParamField path="kebabString" type="string" required>
+  The kebab-case string to convert
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The PascalCase string
+</ResponseField>
+
+---
+
+### humanize
+
+Converts a string to a human-readable format.
+
+```javascript
+import { humanize } from 'loopar';
+
+const result = humanize('helloWorld');
+// Output: 'Hello world'
+
+const result2 = humanize('user_profile_settings');
+// Output: 'User profile settings'
+```
+
+<ParamField path="string" type="string" required>
+  The string to humanize (supports camelCase, snake_case, and kebab-case)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The human-readable string with first letter capitalized
+</ResponseField>
+
+---
+
+### debug_name
+
+Converts a string to a debug-friendly format by replacing spaces and hyphens with underscores.
+
+```javascript
+import { debug_name } from 'loopar';
+
+const result = debug_name('Hello World');
+// Output: 'Hello_World'
+```
+
+<ParamField path="name" type="string" required>
+  The name to convert
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The debug-friendly name
+</ResponseField>
+
+---
+
+## Hashing and Random Generation
+
+### hash
+
+Generates a hash string from input text.
+
+```javascript
+import { hash } from 'loopar';
+
+const result = hash('mystring');
+// Output: 'a1b2c3' (base-36 hash)
+```
+
+<ParamField path="str" type="string" required>
+  The string to hash
+</ParamField>
+
+<ResponseField name="return" type="string">
+  A base-36 encoded hash string
+</ResponseField>
+
+---
+
+### randomString
+
+Generates a random alphanumeric string.
+
+```javascript
+import { randomString } from 'loopar';
+
+const result = randomString(10);
+// Output: 'aB3xY9kL2m' (random 10-character string)
+
+const result2 = randomString();
+// Output: random 15-character string (default)
+```
+
+<ParamField path="length" type="number" default={15}>
+  The length of the random string to generate
+</ParamField>
+
+<ResponseField name="return" type="string">
+  A random alphanumeric string starting with a letter
+</ResponseField>
+
+---
+
+## Value Validation and Conversion
+
+### trueValue
+
+Checks if a value represents a boolean true.
+
+```javascript
+import { trueValue } from 'loopar';
+
+trueValue(true);    // true
+trueValue('true');  // true
+trueValue(1);       // true
+trueValue('1');     // true
+trueValue(false);   // false
+trueValue('0');     // false
+```
+
+<ParamField path="value" type="any" required>
+  The value to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if value is true, "true", 1, or "1"
+</ResponseField>
+
+---
+
+### trueToBinary
+
+Converts a truthy value to binary (1 or 0).
+
+```javascript
+import { trueToBinary } from 'loopar';
+
+const result = trueToBinary(true);
+// Output: 1
+
+const result2 = trueToBinary(false);
+// Output: 0
+```
+
+<ParamField path="value" type="any" required>
+  The value to convert
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Returns 1 if truthy, 0 otherwise
+</ResponseField>
+
+---
+
+### binaryValue
+
+Checks if a value represents binary 1.
+
+```javascript
+import { binaryValue } from 'loopar';
+
+binaryValue(1);     // true
+binaryValue('1');   // true
+binaryValue(0);     // false
+binaryValue('0');   // false
+```
+
+<ParamField path="value" type="any" required>
+  The value to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if value is 1 or "1"
+</ResponseField>
+
+---
+
+### nullValue
+
+Checks if a value is null or undefined.
+
+```javascript
+import { nullValue } from 'loopar';
+
+nullValue(null);        // true
+nullValue('null');      // true
+nullValue(undefined);   // true
+nullValue('undefined'); // true
+nullValue(0);           // false
+nullValue('');          // false
+```
+
+<ParamField path="value" type="any" required>
+  The value to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if value is null, "null", undefined, or "undefined"
+</ResponseField>
+
+---
+
+## JSON Utilities
+
+### isJSON
+
+Checks if a string is valid JSON.
+
+```javascript
+import { isJSON } from 'loopar';
+
+isJSON('{"name": "test"}');  // true
+isJSON('invalid');            // false
+```
+
+<ParamField path="str" type="string" required>
+  The string to validate
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if the string is valid JSON
+</ResponseField>
+
+---
+
+### JSONparse
+
+Safely parses a JSON string.
+
+```javascript
+import { JSONparse } from 'loopar';
+
+const result = JSONparse('{"name": "test"}');
+// Output: { name: 'test' }
+
+const result2 = JSONparse('invalid', { default: 'fallback' });
+// Output: { default: 'fallback' }
+```
+
+<ParamField path="obj" type="string" required>
+  The JSON string to parse
+</ParamField>
+
+<ParamField path="ifNotValid" type="any">
+  The fallback value if parsing fails (defaults to null)
+</ParamField>
+
+<ResponseField name="return" type="any">
+  The parsed JSON object or the fallback value
+</ResponseField>
+
+---
+
+### fixJSON
+
+Fixes common JSON formatting issues with escaped quotes.
+
+```javascript
+import { fixJSON } from 'loopar';
+
+const fixed = fixJSON('{"name": """"value""}');
+// Recursively fixes escaped quote issues
+```
+
+<ParamField path="json" type="string" required>
+  The JSON string to fix
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The fixed JSON string
+</ResponseField>
+
+---
+
+## Avatar and Display Utilities
+
+### avatar
+
+Generates avatar initials from a name.
+
+```javascript
+import { avatar } from 'loopar';
+
+const result = avatar('John Doe');
+// Output: 'JD'
+
+const result2 = avatar('Loopar Framework');
+// Output: 'LF'
+```
+
+<ParamField path="name" type="string" default="loopar">
+  The name to generate initials from
+</ParamField>
+
+<ParamField path="size" type="number" default={32}>
+  The size parameter (currently unused, reserved for future use)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Up to 2 uppercase initials from the name
+</ResponseField>
+
+---
+
+### avatarLetter
+
+Extracts first letters from each word in a string.
+
+```javascript
+import { avatarLetter } from 'loopar';
+
+const result = avatarLetter('John Doe Smith');
+// Output: 'JDS'
+```
+
+<ParamField path="word" type="string" required>
+  The text to extract letters from
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Uppercase first letters of each word
+</ResponseField>
+
+---
+
+## Color Utilities
+
+### rgba
+
+Converts a hex color to RGBA format.
+
+```javascript
+import { rgba } from 'loopar';
+
+const result = rgba('#ff5733', 0.5);
+// Output: 'rgba(255, 87, 51, 0.5)'
+
+const result2 = rgba({ color: '#ff5733', alpha: 0.8 });
+// Output: 'rgba(255, 87, 51, 0.8)'
+```
+
+<ParamField path="hex" type="string | object" required>
+  The hex color string (e.g., '#ff5733') or an object with color and alpha properties
+</ParamField>
+
+<ParamField path="alpha" type="number" default={1}>
+  The alpha transparency value (0-1)
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  The RGBA color string or null if invalid
+</ResponseField>
+
+---
+
+### objToRGBA
+
+Converts an RGB object to RGBA string.
+
+```javascript
+import { objToRGBA } from 'loopar';
+
+const result = objToRGBA({ r: 255, g: 87, b: 51, a: 0.5 });
+// Output: 'rgba(255, 87, 51, 0.5)'
+
+const result2 = objToRGBA({ r: 255, g: 87, b: 51 });
+// Output: 'rgba(255, 87, 51, 1)'
+```
+
+<ParamField path="color" type="object | string" required>
+  RGB object with r, g, b properties (0-255) and optional a property (0-1)
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  The RGBA color string or null if invalid
+</ResponseField>
+
+---
+
+## Layout and Style Utilities
+
+### aspectRatio
+
+Calculates percentage-based aspect ratio for CSS.
+
+```javascript
+import { aspectRatio } from 'loopar';
+
+const result = aspectRatio('16:9');
+// Output: 56.25
+
+const result2 = aspectRatio('4:3');
+// Output: 75
+```
+
+<ParamField path="ratio" type="string" required>
+  The aspect ratio in "width:height" format
+</ParamField>
+
+<ResponseField name="return" type="number">
+  The percentage value for padding-bottom CSS trick
+</ResponseField>
+
+---
+
+### renderizableProps
+
+Filters props to only those that can be rendered as HTML attributes.
+
+```javascript
+import { renderizableProps } from 'loopar';
+
+const props = {
+  className: 'test',
+  onClick: () => {},
+  element: 'div',
+  style: { color: 'red' },
+  'data-id': '123'
+};
+
+const result = renderizableProps(props);
+// Output: { className: 'test', style: { color: 'red' }, 'data-id': '123' }
+```
+
+<ParamField path="props" type="object" required>
+  The props object to filter
+</ParamField>
+
+<ResponseField name="return" type="object">
+  Filtered props excluding internal properties, event handlers (except children and style), and metadata
+</ResponseField>
+
+---
+
+## Date Formatting
+
+### formatDate
+
+Formats a date to a string.
+
+```javascript
+import { formatDate } from 'loopar';
+
+const result = formatDate(new Date());
+// Output: '2024-03-15'
+
+const result2 = formatDate(new Date(), 'MM/DD/YYYY');
+// Output: '03/15/2024'
+```
+
+<ParamField path="date" type="Date | string" required>
+  The date to format
+</ParamField>
+
+<ParamField path="format" type="string" default="YYYY-MM-DD">
+  The date format string (dayjs format)
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  The formatted date string or null if invalid
+</ResponseField>
+
+---
+
+### formatTime
+
+Formats a date to a time string.
+
+```javascript
+import { formatTime } from 'loopar';
+
+const result = formatTime(new Date());
+// Output: '14:30:00'
+
+const result2 = formatTime(new Date(), 'HH:mm');
+// Output: '14:30'
+```
+
+<ParamField path="date" type="Date | string" required>
+  The date to format
+</ParamField>
+
+<ParamField path="format" type="string" default="HH:mm:ss">
+  The time format string (dayjs format)
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  The formatted time string or null if invalid
+</ResponseField>
+
+---
+
+### formatDateTime
+
+Formats a date to a datetime string.
+
+```javascript
+import { formatDateTime } from 'loopar';
+
+const result = formatDateTime(new Date());
+// Output: '2024-03-15 14:30:00'
+
+const result2 = formatDateTime(new Date(), 'MM/DD/YYYY HH:mm');
+// Output: '03/15/2024 14:30'
+```
+
+<ParamField path="date" type="Date | string" required>
+  The date to format
+</ParamField>
+
+<ParamField path="format" type="string" default="YYYY-MM-DD HH:mm:ss">
+  The datetime format string (dayjs format)
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  The formatted datetime string or null if invalid
+</ResponseField>
+
+---
+
+## Comparison and Array Utilities
+
+### compare
+
+Compares two strings ignoring case and separators.
+
+```javascript
+import { compare } from 'loopar';
+
+compare('hello-world', 'Hello World');   // true
+compare('user_name', 'User Name');       // true
+compare('test', 'different');            // false
+```
+
+<ParamField path="a" type="string" required>
+  First string to compare
+</ParamField>
+
+<ParamField path="b" type="string" required>
+  Second string to compare
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Returns true if strings are equal (case-insensitive, ignoring - and _)
+</ResponseField>
+
+---
+
+### getArrayMax
+
+Finds the maximum value of a specific column in an array of objects.
+
+```javascript
+import { getArrayMax } from 'loopar';
+
+const data = [
+  { id: 1, score: 85 },
+  { id: 2, score: 92 },
+  { id: 3, score: 78 }
+];
+
+const maxScore = getArrayMax(data, 'score');
+// Output: 92
+```
+
+<ParamField path="array" type="Array<object>" required>
+  The array of objects
+</ParamField>
+
+<ParamField path="col" type="string" required>
+  The column name to find the maximum value
+</ParamField>
+
+<ResponseField name="return" type="number">
+  The maximum value found, or 0 if array is empty
+</ResponseField>
+
+---
+
+## Data Structure Utilities
+
+### fieldList
+
+Flattens a nested field structure into a single array.
+
+```javascript
+import { fieldList } from 'loopar';
+
+const fields = [
+  { name: 'field1', elements: [
+    { name: 'nested1' },
+    { name: 'nested2', elements: [
+      { name: 'deep1' }
+    ]}
+  ]},
+  { name: 'field2' }
+];
+
+const flattened = fieldList(fields);
+// Output: [field1, nested1, nested2, deep1, field2]
+```
+
+<ParamField path="fields" type="Array | string" required>
+  The fields array or JSON string to flatten
+</ParamField>
+
+<ResponseField name="return" type="Array">
+  A flattened array of all fields including nested elements
+</ResponseField>
+
+---
+
+### ObjectDeepExtend
+
+Deep merges two objects, with circular reference protection.
+
+```javascript
+import { ObjectDeepExtend } from 'loopar';
+
+const target = { a: 1, b: { c: 2 } };
+const source = { b: { d: 3 }, e: 4 };
+
+const result = ObjectDeepExtend(target, source);
+// Output: { a: 1, b: { c: 2, d: 3 }, e: 4 }
+```
+
+<ParamField path="destination" type="object" required>
+  The target object to extend
+</ParamField>
+
+<ParamField path="source" type="object" required>
+  The source object to merge from
+</ParamField>
+
+<ParamField path="visited" type="WeakMap">
+  Internal parameter for tracking visited objects (prevents circular references)
+</ParamField>
+
+<ResponseField name="return" type="object">
+  The merged object
+</ResponseField>
+
+---
+
+## URL and Routing Utilities
+
+### toEntityKey
+
+Converts a string to a normalized entity key.
+
+```javascript
+import { toEntityKey } from 'loopar';
+
+const result = toEntityKey('User Profile Settings');
+// Output: 'userprofilesettings'
+
+const result2 = toEntityKey('my-entity_name');
+// Output: 'myentityname'
+```
+
+<ParamField path="str" type="string" required>
+  The string to convert
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Normalized lowercase string with no separators
+</ResponseField>
+
+---
+
+### urlHash
+
+Generates a hash from a route object including query parameters.
+
+```javascript
+import { urlHash } from 'loopar';
+
+const route = {
+  pathname: '/users/edit',
+  search: '?name=john&id=123'
+};
+
+const hash = urlHash(route);
+// Output: unique hash string based on pathname and name parameter
+```
+
+<ParamField path="route" type="object" required>
+  Route object with pathname and search properties
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Hash string based on pathname and name query parameter
+</ResponseField>
+
+---
+
+### urlInstance
+
+Generates a hash from a route pathname.
+
+```javascript
+import { urlInstance } from 'loopar';
+
+const route = { pathname: '/users/edit' };
+const hash = urlInstance(route);
+// Output: unique hash string based on pathname
+```
+
+<ParamField path="route" type="object" required>
+  Route object with pathname property
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Hash string based on pathname only
+</ResponseField>
+
+---
+
+## AI Integration Utilities
+
+### evaluateAIResponse
+
+Extracts content between delimiters from AI responses.
+
+```javascript
+import { evaluateAIResponse } from 'loopar';
+
+const message = 'Here is the result: [{"data": "value"}] and more text';
+const result = evaluateAIResponse(message, '[', ']');
+// Output: '[{"data": "value"}]'
+
+const result2 = evaluateAIResponse('No brackets here');
+// Output: 'No brackets here'
+```
+
+<ParamField path="message" type="string" required>
+  The AI response message
+</ParamField>
+
+<ParamField path="start" type="string" default="[">
+  The starting delimiter
+</ParamField>
+
+<ParamField path="end" type="string">
+  The ending delimiter (defaults to same as start)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The extracted content between delimiters, or the original message if no delimiters found
+</ResponseField>
+
+---
+
+## Complete Export List
+
+All functions are exported as named exports:
+
+```javascript
+import {
+  Capitalize,
+  UPPERCASE,
+  lowercase,
+  debug_name,
+  hash,
+  trueValue,
+  trueToBinary,
+  humanize,
+  JSONstringify,
+  JSONparse,
+  decamelize,
+  avatar,
+  randomString,
+  avatarLetter,
+  camelCase,
+  nullValue,
+  isJSON,
+  fieldList,
+  rgba,
+  aspectRatio,
+  kebabToPascal,
+  cookie,
+  renderizableProps,
+  binaryValue,
+  formatDate,
+  formatTime,
+  formatDateTime,
+  compare,
+  getArrayMax,
+  objToRGBA,
+  ObjectDeepExtend,
+  evaluateAIResponse,
+  toEntityKey,
+  fixJSON,
+  urlHash,
+  urlInstance
+} from 'loopar';
+```

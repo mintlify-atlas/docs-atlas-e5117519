@@ -1,0 +1,478 @@
+---
+title: 'Loopar Core Class'
+description: 'The main Loopar framework class that manages application initialization, database connections, authentication, and core services'
+---
+
+## Overview
+
+The `Loopar` class is the core of the Loopar Framework. It extends the `Document` class and provides essential functionality for application management, database operations, authentication, server initialization, and multi-tenancy support.
+
+## Installation
+
+The Loopar instance is exported as a singleton and can be imported directly:
+
+```javascript
+import { loopar } from 'loopar';
+```
+
+## Constructor
+
+```javascript
+const loopar = new Loopar();
+```
+
+The constructor initializes:
+- Date utilities (`dateUtils`)
+- Server instance
+- Database ORM connection
+- Unique tenant ID
+
+## Initialization
+
+### init(options)
+
+Initializes the Loopar instance with tenant-specific configuration.
+
+<ParamField path="options" type="object" required>
+  Configuration object for initialization
+</ParamField>
+
+<ParamField path="options.tenantId" type="string" required>
+  Unique identifier for the tenant
+</ParamField>
+
+<ParamField path="options.appsBasePath" type="string">
+  Base path for applications
+</ParamField>
+
+```javascript
+await loopar.init({
+  tenantId: 'my-tenant',
+  appsBasePath: '/apps'
+});
+```
+
+### initialize()
+
+Internal method that:
+- Builds the global environment
+- Loads configuration
+- Initializes the database
+- Builds the application
+- Builds icons
+- Initializes Tailwind CSS
+
+```javascript
+await loopar.initialize();
+```
+
+## Properties
+
+### Core Properties
+
+<ResponseField name="pathRoot" type="string">
+  Root path of the application (defaults to `process.cwd()`)
+</ResponseField>
+
+<ResponseField name="tenantId" type="string">
+  Current tenant identifier
+</ResponseField>
+
+<ResponseField name="tenantPath" type="string">
+  File system path to tenant-specific data
+</ResponseField>
+
+<ResponseField name="pathCore" type="string">
+  Path to Loopar core package
+</ResponseField>
+
+<ResponseField name="appsBasePath" type="string">
+  Base path for installed applications
+</ResponseField>
+
+<ResponseField name="db" type="SequelizeORM">
+  Database ORM instance
+</ResponseField>
+
+<ResponseField name="server" type="Server">
+  HTTP server instance
+</ResponseField>
+
+<ResponseField name="auth" type="Auth">
+  Authentication manager
+</ResponseField>
+
+<ResponseField name="utils" type="object">
+  Collection of utility functions from `Helpers`
+</ResponseField>
+
+<ResponseField name="dateUtils" type="object">
+  Date manipulation utilities
+</ResponseField>
+
+<ResponseField name="markdownRenderer" type="function">
+  Markdown rendering function
+</ResponseField>
+
+### Getters
+
+<ResponseField name="authTokenName" type="string">
+  Returns the authentication token name (format: `loopar-{hash(tenantId)}`)
+</ResponseField>
+
+<ResponseField name="jwtSecret" type="string">
+  Returns the JWT secret for token signing (SHA1 hash of tenant ID)
+</ResponseField>
+
+<ResponseField name="cookie" type="CookieManager">
+  Cookie management instance from request context
+</ResponseField>
+
+<ResponseField name="session" type="SessionManager">
+  Session management instance from request context
+</ResponseField>
+
+<ResponseField name="currentUser" type="object">
+  Decoded JWT token data for the currently authenticated user
+</ResponseField>
+
+<ResponseField name="installedApps" type="object">
+  Object containing all installed applications configuration
+</ResponseField>
+
+<ResponseField name="installing" type="boolean">
+  Returns true if an app installation is in progress
+</ResponseField>
+
+## Document Management
+
+### getDocument(document, name, data, options)
+
+Retrieves a document instance by document type and name.
+
+<ParamField path="document" type="string" required>
+  Document type name (e.g., 'User', 'Entity')
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Document identifier/name
+</ParamField>
+
+<ParamField path="data" type="object">
+  Optional data to merge with document
+</ParamField>
+
+<ParamField path="options.ifNotFound" type="string" default="throw">
+  Behavior when document not found: 'throw' or 'null'
+</ParamField>
+
+<ParamField path="options.parse" type="boolean" default="false">
+  Whether to parse markdown fields
+</ParamField>
+
+```javascript
+const user = await loopar.getDocument('User', 'john@example.com');
+console.log(user.name, user.email);
+```
+
+### newDocument(document, data)
+
+Creates a new document instance (not yet saved to database).
+
+<ParamField path="document" type="string" required>
+  Document type name
+</ParamField>
+
+<ParamField path="data" type="object">
+  Initial document data
+</ParamField>
+
+```javascript
+const newUser = await loopar.newDocument('User', {
+  name: 'jane@example.com',
+  email: 'jane@example.com',
+  first_name: 'Jane'
+});
+await newUser.save();
+```
+
+### deleteDocument(document, name, options)
+
+Deletes a document from the database.
+
+<ParamField path="document" type="string" required>
+  Document type name
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Document identifier
+</ParamField>
+
+<ParamField path="options.sofDelete" type="boolean" default="true">
+  Soft delete (mark as deleted) vs hard delete
+</ParamField>
+
+<ParamField path="options.force" type="boolean" default="false">
+  Force delete even if document has connections
+</ParamField>
+
+<ParamField path="options.updateHistory" type="boolean" default="true">
+  Create history entry for deletion
+</ParamField>
+
+```javascript
+await loopar.deleteDocument('User', 'old-user@example.com', {
+  sofDelete: true,
+  force: false
+});
+```
+
+### getList(document, options)
+
+Retrieves a paginated list of documents.
+
+<ParamField path="document" type="string" required>
+  Document type name
+</ParamField>
+
+<ParamField path="options.fields" type="array">
+  Fields to retrieve (defaults to list view fields)
+</ParamField>
+
+<ParamField path="options.filters" type="object">
+  Filter conditions
+</ParamField>
+
+<ParamField path="options.q" type="object">
+  Search query object
+</ParamField>
+
+<ParamField path="options.rowsOnly" type="boolean" default="false">
+  Return only rows without metadata
+</ParamField>
+
+```javascript
+const userList = await loopar.getList('User', {
+  fields: ['name', 'email', 'first_name'],
+  filters: { disabled: 0 },
+  q: { name: 'john' }
+});
+
+console.log(userList.rows);
+console.log(userList.pagination);
+```
+
+## User & Authentication
+
+### getUser(userId)
+
+Retrieves user data for authentication.
+
+<ParamField path="userId" type="string">
+  User name or email
+</ParamField>
+
+```javascript
+const user = await loopar.getUser('admin@example.com');
+```
+
+### disabledUser(userId)
+
+Checks if a user is disabled.
+
+<ParamField path="userId" type="string" required>
+  User name or email
+</ParamField>
+
+```javascript
+const isDisabled = await loopar.disabledUser('user@example.com');
+```
+
+## App Management
+
+### setApp(app)
+
+Registers or updates an installed application.
+
+<ParamField path="app" type="object" required>
+  Application configuration object
+</ParamField>
+
+```javascript
+await loopar.setApp({
+  'my-app': {
+    name: 'my-app',
+    version: '1.0.0',
+    installed: true
+  }
+});
+```
+
+### unsetApp(appName)
+
+Unregisters an installed application.
+
+<ParamField path="appName" type="string" required>
+  Application name to remove
+</ParamField>
+
+```javascript
+await loopar.unsetApp('my-app');
+```
+
+## Database Configuration
+
+### getDbConfig()
+
+Retrieves the current database configuration.
+
+```javascript
+const dbConfig = loopar.getDbConfig();
+console.log(dbConfig.host, dbConfig.database);
+```
+
+### setDbConfig(config)
+
+Updates the database configuration.
+
+<ParamField path="config" type="object" required>
+  Database configuration object
+</ParamField>
+
+```javascript
+await loopar.setDbConfig({
+  host: 'localhost',
+  port: 3306,
+  database: 'my_db',
+  username: 'root',
+  password: 'secret'
+});
+```
+
+## Settings
+
+### systemsSettings()
+
+Retrieves system settings document.
+
+```javascript
+const settings = await loopar.systemsSettings();
+```
+
+### getSettings()
+
+Retrieves cached system settings.
+
+```javascript
+const settings = await loopar.getSettings();
+```
+
+## Git Operations
+
+### git(appName)
+
+Returns a SimpleGit instance for app repository operations.
+
+<ParamField path="appName" type="string">
+  Application name (optional)
+</ParamField>
+
+```javascript
+const git = loopar.git('my-app');
+await git.pull();
+await git.add('.');
+await git.commit('Update app');
+```
+
+### gitRepositoryIsValid(repository)
+
+Validates git repository URL format.
+
+<ParamField path="repository" type="string" required>
+  Git repository URL
+</ParamField>
+
+```javascript
+const isValid = loopar.gitRepositoryIsValid('https://github.com/user/repo.git');
+```
+
+### validateGitRepository(appName, repository)
+
+Validates and throws error if repository is invalid.
+
+```javascript
+loopar.validateGitRepository('my-app', 'https://github.com/user/repo.git');
+```
+
+## Utility Methods
+
+### hash(value)
+
+Generates SHA1 hash of a value.
+
+<ParamField path="value" type="string" required>
+  Value to hash
+</ParamField>
+
+```javascript
+const hashed = loopar.hash('mypassword');
+```
+
+### throw(error, redirect)
+
+Throws a formatted error with optional redirect.
+
+<ParamField path="error" type="string|object" required>
+  Error message or object with code and message
+</ParamField>
+
+<ParamField path="redirect" type="string">
+  Optional redirect URL
+</ParamField>
+
+```javascript
+loopar.throw('Invalid input');
+// or
+loopar.throw({ code: 404, message: 'Not found' }, '/login');
+```
+
+## Example Usage
+
+```javascript
+import { loopar } from 'loopar';
+
+// Initialize with tenant
+await loopar.init({
+  tenantId: 'my-company',
+  appsBasePath: '/apps'
+});
+
+// Create a new document
+const user = await loopar.newDocument('User', {
+  name: 'john@example.com',
+  email: 'john@example.com',
+  first_name: 'John',
+  last_name: 'Doe'
+});
+
+await user.save();
+
+// Retrieve and update
+const existingUser = await loopar.getDocument('User', 'john@example.com');
+existingUser.first_name = 'Johnny';
+await existingUser.save();
+
+// List users
+const users = await loopar.getList('User', {
+  filters: { disabled: 0 },
+  fields: ['name', 'email', 'first_name']
+});
+
+console.log(`Found ${users.pagination.totalRecords} users`);
+```
+
+## Related
+
+- [BaseDocument](/api/base-document) - Document class methods
+- [BaseController](/api/base-controller) - Controller class for routing
+- [File Manager](/api/file-manager) - File operations

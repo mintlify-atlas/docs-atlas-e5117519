@@ -1,0 +1,649 @@
+---
+title: Custom Components
+description: Learn how to create your own custom components for the Loopar Framework
+---
+
+Loopar Framework allows you to create custom components that integrate seamlessly with the designer and form system. This guide covers the structure, best practices, and advanced features for building custom components.
+
+## Component Structure
+
+Custom components in Loopar follow a specific structure to ensure compatibility with the framework.
+
+### Basic Component Template
+
+```jsx
+import { Droppable } from "@droppable";
+import { useDesigner } from "@context/@/designer-context";
+import { ComponentDefaults } from "./base/ComponentDefaults";
+
+export default function MyCustomComponent(props) {
+  const { set, data } = ComponentDefaults(props);
+  const { designerMode } = useDesigner();
+
+  return (
+    <div className="my-custom-component">
+      <h3>{data.label || "My Component"}</h3>
+      <Droppable {...props} />
+    </div>
+  );
+}
+
+// Configure component properties
+MyCustomComponent.droppable = true;
+MyCustomComponent.metaFields = () => {
+  return [
+    {
+      group: "custom",
+      elements: {
+        label: {
+          element: "input",
+          data: {
+            label: "Label",
+            name: "label"
+          }
+        }
+      }
+    }
+  ];
+};
+```
+
+## Base Classes
+
+### Class-Based Components
+
+For more complex components, extend the base `Component` class:
+
+```javascript packages/loopar/src/components/base/component.jsx
+import Component from "./base/component";
+
+export default class MyComponent extends Component {
+  get droppable() { return true };
+  get draggable() { return true };
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      data: props.data,
+      customState: null
+    };
+  }
+
+  render() {
+    const { label } = this.data;
+    
+    return (
+      <div className="my-component">
+        <h3>{label}</h3>
+        {this.props.children}
+      </div>
+    );
+  }
+
+  // Lifecycle methods
+  onMount() {
+    // Called when component mounts
+    console.log("Component mounted");
+  }
+
+  onUpdate() {
+    // Called when component updates
+    console.log("Component updated");
+  }
+
+  // Helper methods available from base class
+  get identifier() {
+    const { key, id, name } = this.data;
+    return key ?? id ?? name ?? elementManage.getUniqueKey();
+  }
+
+  getSrc() {
+    // Get mapped file sources
+    return fileManager.getMappedFiles(
+      this.data.background_image, 
+      this.data.name
+    );
+  }
+
+  set(key, value) {
+    // Update component data
+    let data = this.data;
+    if (typeof key == "object") {
+      Object.assign(data, key);
+    } else {
+      data[key] = value;
+    }
+    loopar.Designer?.updateElement(data.key, data);
+  }
+}
+```
+
+### ComponentDefaults Helper
+
+The `ComponentDefaults` helper provides common functionality for functional components:
+
+```javascript packages/loopar/src/components/base/ComponentDefaults.jsx
+import { ComponentDefaults } from "./base/ComponentDefaults";
+
+export default function MyComponent(props) {
+  const {
+    getSrc,           // Get background image sources
+    getTextSize,      // Get text size class
+    getTextAlign,     // Get text alignment class
+    set,              // Update component data
+    setElements,      // Update child elements
+    getSize,          // Get size class
+    data              // Component data
+  } = ComponentDefaults(props);
+
+  // Use the helpers
+  const textSizeClass = getTextSize("lg");  // Returns "text-lg"
+  const alignClass = getTextAlign("center"); // Returns "text-center"
+
+  return (
+    <div className={`${textSizeClass} ${alignClass}`}>
+      {data.content}
+    </div>
+  );
+}
+```
+
+## Form Components
+
+Create custom form input components by extending `BaseInput`:
+
+```jsx
+import BaseInput from "@base-input";
+import { FormLabel, invalidClass } from "./input/index.js";
+import { FormControl, FormDescription } from "@cn/components/ui/form";
+
+export default function CustomInput(props) {
+  const { renderInput, data } = BaseInput(props);
+
+  return renderInput((field) => {
+    return (
+      <>
+        <FormLabel {...props} field={field} />
+        <FormControl>
+          <input
+            {...field}
+            placeholder={data.placeholder || data.label}
+            className={field.isInvalid ? invalidClass.border : ""}
+            // Your custom input implementation
+          />
+        </FormControl>
+        {data.description && (
+          <FormDescription>{data.description}</FormDescription>
+        )}
+      </>
+    );
+  });
+}
+
+CustomInput.droppable = false;
+CustomInput.metaFields = () => {
+  return [
+    ...BaseInput.metaFields(),
+    [
+      {
+        group: "custom",
+        elements: {
+          custom_prop: {
+            element: "input",
+            data: {
+              label: "Custom Property",
+              name: "custom_prop"
+            }
+          }
+        }
+      }
+    ]
+  ];
+};
+```
+
+## Component Properties
+
+### Static Properties
+
+<ParamField path="droppable" type="boolean" default={false}>
+  Whether the component can contain child elements
+</ParamField>
+
+<ParamField path="draggable" type="boolean" default={true}>
+  Whether the component can be dragged in the designer
+</ParamField>
+
+<ParamField path="requires" type="string[]">
+  Array of required child element types
+  ```javascript
+  MetaTabs.requires = ["tab"]
+  ```
+</ParamField>
+
+<ParamField path="dontHaveMetaElements" type="string[]">
+  Meta fields to exclude from the designer
+  ```javascript
+  Col.dontHaveMetaElements = ["label", "text"]
+  ```
+</ParamField>
+
+<ParamField path="designerClasses" type="string">
+  CSS classes to apply in designer mode
+  ```javascript
+  MetaBanner.designerClasses = "h-full w-full p-3 py-6"
+  ```
+</ParamField>
+
+### metaFields Method
+
+Define configurable properties for the designer:
+
+```javascript
+MyComponent.metaFields = () => {
+  return [
+    {
+      group: "layout",
+      elements: {
+        width: {
+          element: "select",
+          data: {
+            label: "Width",
+            options: ["auto", "full", "1/2", "1/3", "1/4"],
+            default_value: "auto"
+          }
+        },
+        height: {
+          element: "input",
+          data: {
+            label: "Height",
+            format: "int",
+            description: "Height in pixels"
+          }
+        }
+      }
+    },
+    {
+      group: "style",
+      elements: {
+        background_color: {
+          element: "color_picker",
+          data: {
+            label: "Background Color"
+          }
+        },
+        text_color: {
+          element: "color_picker",
+          data: {
+            label: "Text Color"
+          }
+        }
+      }
+    }
+  ];
+};
+```
+
+## Designer Integration
+
+### Using Designer Context
+
+```jsx
+import { useDesigner } from "@context/@/designer-context";
+
+export default function MyComponent(props) {
+  const {
+    designerMode,      // Boolean: is designer active
+    designing,         // Boolean: is component being edited
+    isDesigner,        // Boolean: is user a designer
+    handleEditElement, // Function: edit element
+    handleDeleteElement, // Function: delete element
+    updateElement,     // Function: update element data
+    updateElements     // Function: update child elements
+  } = useDesigner();
+
+  const handleClick = () => {
+    if (designerMode) {
+      handleEditElement(props.data.key);
+    } else {
+      // Normal click behavior
+    }
+  };
+
+  return (
+    <div onClick={handleClick}>
+      {/* Component content */}
+    </div>
+  );
+}
+```
+
+### Conditional Rendering
+
+```jsx
+export default function MyComponent(props) {
+  const { designerMode, designerModeType } = useDesigner();
+  
+  // Show different UI in designer vs. preview/runtime
+  if (designerMode && designerModeType === "edit") {
+    return (
+      <div className="designer-placeholder">
+        <p>Component: {props.data.label}</p>
+        <p>Click to edit</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="runtime-component">
+      {/* Actual component rendering */}
+    </div>
+  );
+}
+```
+
+## Advanced Patterns
+
+### Preassembled Components
+
+For components with default child elements:
+
+```jsx
+import Preassembled from "@preassembled";
+
+export default function MyPreassembledComponent(props) {
+  const data = props.data || {};
+  
+  const defaultElements = [
+    {
+      element: "title",
+      data: {
+        key: data.key + "-title",
+        text: data.label || "Default Title",
+        size: "3xl"
+      }
+    },
+    {
+      element: "paragraph",
+      data: {
+        key: data.key + "-content",
+        text: data.text || "Default content"
+      }
+    }
+  ];
+
+  return (
+    <Preassembled
+      {...props}
+      defaultElements={defaultElements}
+      notDroppable={false}
+    >
+      {/* Your component implementation */}
+    </Preassembled>
+  );
+}
+```
+
+### Context Providers
+
+Create context for sharing state between parent and child components:
+
+```jsx
+import React, { createContext, useContext } from "react";
+
+const MyComponentContext = createContext();
+
+export const MyComponentProvider = ({ children, value }) => {
+  return (
+    <MyComponentContext.Provider value={value}>
+      {children}
+    </MyComponentContext.Provider>
+  );
+};
+
+export const useMyComponent = () => {
+  return useContext(MyComponentContext);
+};
+
+// Usage in parent component
+export default function ParentComponent(props) {
+  return (
+    <MyComponentProvider value={{ someProp: "value" }}>
+      <Droppable {...props} />
+    </MyComponentProvider>
+  );
+}
+
+// Usage in child component
+export default function ChildComponent(props) {
+  const { someProp } = useMyComponent();
+  return <div>{someProp}</div>;
+}
+```
+
+### Dynamic Columns (Like Row Component)
+
+```jsx
+import { useState, useEffect, useCallback } from "react";
+import elementManage from "@@tools/element-manage";
+
+export default function DynamicGrid(props) {
+  const { setElements } = ComponentDefaults(props);
+  const [cols, setCols] = useState(props.elements || []);
+  const [layout, setLayout] = useState([50, 50]);
+
+  const conciliateCols = useCallback(() => {
+    if (cols.length < layout.length) {
+      const diff = layout.length - cols.length;
+      const addCols = [...cols];
+
+      for (let i = 0; i < diff; i++) {
+        addCols.push({
+          element: "col",
+          data: { key: elementManage.getUniqueKey() }
+        });
+      }
+
+      setElements(addCols);
+      setCols(addCols);
+    }
+  }, [layout, cols, setElements]);
+
+  useEffect(() => {
+    conciliateCols();
+  }, [layout]);
+
+  return (
+    <div className="grid" style={{ gridTemplateColumns: layout.map(l => `${l}%`).join(" ") }}>
+      {cols.map((col, idx) => (
+        <div key={idx}>
+          {/* Render column */}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Registration
+
+### Add to Element Definition
+
+Register your component in the element definition system:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const elementsDefinition = {
+  // ... existing elements
+  [DESIGN_ELEMENT]: [
+    // ... existing design elements
+    { 
+      element: "my_custom_component", 
+      icon: "Star",
+      type: TYPES.text,
+      designerOnly: false,
+      clientOnly: false
+    },
+  ],
+}
+```
+
+### Component File Location
+
+Place your component file in:
+```
+packages/loopar/src/components/my-custom-component.jsx
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Performance">
+    - Use `useMemo` and `useCallback` for expensive computations
+    - Implement `React.memo` for components that render frequently
+    - Avoid unnecessary re-renders by checking props equality
+    - Use `useRef` for values that don't trigger re-renders
+  </Accordion>
+
+  <Accordion title="State Management">
+    - Keep state as close to where it's used as possible
+    - Use context sparingly (only for truly global state)
+    - Prefer props drilling for 2-3 levels
+    - Use `ComponentDefaults` helper for common state
+  </Accordion>
+
+  <Accordion title="Styling">
+    - Use Tailwind CSS classes for consistency
+    - Follow the framework's design system
+    - Use `cn()` utility for conditional classes
+    - Provide customization through `data.class` prop
+  </Accordion>
+
+  <Accordion title="Validation">
+    - Implement validation for form components
+    - Use the `dataInterface` class for common validators
+    - Provide clear error messages
+    - Support both client and server-side validation
+  </Accordion>
+</AccordionGroup>
+
+## Testing Custom Components
+
+```javascript
+// Example test using Jest and React Testing Library
+import { render, screen } from "@testing-library/react";
+import MyCustomComponent from "./my-custom-component";
+
+describe("MyCustomComponent", () => {
+  it("renders with label", () => {
+    const props = {
+      data: {
+        key: "test-component",
+        label: "Test Label"
+      }
+    };
+
+    render(<MyCustomComponent {...props} />);
+    expect(screen.getByText("Test Label")).toBeInTheDocument();
+  });
+
+  it("updates when data changes", () => {
+    const { rerender } = render(
+      <MyCustomComponent data={{ label: "Old" }} />
+    );
+    expect(screen.getByText("Old")).toBeInTheDocument();
+
+    rerender(<MyCustomComponent data={{ label: "New" }} />);
+    expect(screen.getByText("New")).toBeInTheDocument();
+  });
+});
+```
+
+## Example: Complete Custom Component
+
+Here's a complete example of a custom rating component:
+
+```jsx
+import { useState } from "react";
+import BaseInput from "@base-input";
+import { FormLabel } from "./input/index.js";
+import { Star } from "lucide-react";
+
+export default function RatingInput(props) {
+  const { renderInput, data } = BaseInput(props);
+  const maxStars = data.max_stars || 5;
+
+  return renderInput((field) => {
+    const [hover, setHover] = useState(0);
+    const currentRating = parseInt(field.value) || 0;
+
+    return (
+      <>
+        <FormLabel {...props} field={field} />
+        <div className="flex gap-1">
+          {[...Array(maxStars)].map((_, idx) => {
+            const starValue = idx + 1;
+            return (
+              <Star
+                key={idx}
+                size={24}
+                className={`cursor-pointer transition-colors ${
+                  starValue <= (hover || currentRating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-gray-300"
+                }`}
+                onClick={() => field.onChange({ target: { value: starValue } })}
+                onMouseEnter={() => setHover(starValue)}
+                onMouseLeave={() => setHover(0)}
+              />
+            );
+          })}
+        </div>
+        {data.description && (
+          <p className="text-sm text-gray-500">{data.description}</p>
+        )}
+      </>
+    );
+  });
+}
+
+RatingInput.droppable = false;
+RatingInput.metaFields = () => {
+  return [
+    ...BaseInput.metaFields(),
+    [
+      {
+        group: "custom",
+        elements: {
+          max_stars: {
+            element: "input",
+            data: {
+              label: "Max Stars",
+              format: "int",
+              default_value: 5,
+              min: 1,
+              max: 10
+            }
+          }
+        }
+      }
+    ]
+  ];
+};
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component API" icon="book" href="/api/components">
+    Explore the full component API reference
+  </Card>
+  <Card title="Designer API" icon="palette" href="/api/designer">
+    Learn about designer integration
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/components">
+    Browse component examples
+  </Card>
+  <Card title="Contributing" icon="github" href="/contributing">
+    Contribute your components to Loopar
+  </Card>
+</CardGroup>

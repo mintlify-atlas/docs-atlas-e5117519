@@ -1,0 +1,533 @@
+---
+title: Designer Workspace
+description: Understanding the Loopar Framework's designer workspace interface and features
+---
+
+The Designer Workspace is the primary interface for building and managing visual components in the Loopar Framework. It provides a comprehensive environment with navigation, document management, theming, and state synchronization.
+
+## Workspace Architecture
+
+The Loopar Framework includes three workspace variants:
+
+<CardGroup cols={3}>
+  <Card title="Desk Workspace" icon="desktop">
+    Admin interface for managing entities, forms, and system settings
+  </Card>
+  <Card title="Web Workspace" icon="globe">
+    Public-facing workspace for content pages and user interactions
+  </Card>
+  <Card title="Auth Workspace" icon="lock">
+    Authentication and authorization flows
+  </Card>
+</CardGroup>
+
+## Workspace Provider
+
+The `WorkspaceProvider` manages global application state:
+
+```jsx
+// From workspace-provider.jsx:26-309
+export function WorkspaceProvider({
+  children,
+  defaultTheme = "system",
+  storageKey = "vite-ui-theme",
+  ...props
+}) {
+  const pathname = usePathname();
+  const [theme, setTheme] = useCookies(storageKey);
+  const __META__ = props.__META__ || {}
+  const __WORKSPACE_NAME__ = __META__.name || "desk"
+
+  const [Documents, setDocuments] = useState(props.Documents || {});
+  const [loaded, setLoaded] = useState(false);
+  const [activePage, setActivePage] = useState(props.activePage || "");
+  const [activeModule, setActiveModule] = useState(null);
+  const [refreshFlag, setRefreshFlag] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const __META_CACHE__ = {};
+  const navigate = useNavigate();
+  
+  // ... state management logic
+}
+```
+
+### Available Context Values
+
+```jsx
+import { useWorkspace } from "@workspace/workspace-provider";
+
+const {
+  theme,              // Current theme: "light" | "dark" | "system"
+  setTheme,           // Function to change theme
+  __META__,           // Current workspace metadata
+  openNav,            // Boolean: sidebar navigation open
+  setOpenNav,         // Function to toggle sidebar
+  toogleSidebarNav,   // Toggle sidebar state
+  menuItems,          // Navigation menu structure
+  activeParentMenu,   // Current active menu parent
+  ENVIRONMENT,        // Environment variables
+  ActiveView,         // Currently rendered view
+  activePage,         // Name of active document
+  activeModule,       // Active module name
+  refresh,            // Function to refresh current view
+  isPending,          // Boolean: loading state
+  workspace           // Workspace name: "desk" | "web" | "auth"
+} = useWorkspace();
+```
+
+## Theme Management
+
+The workspace supports light, dark, and system themes:
+
+```jsx
+// From workspace-provider.jsx:79-91
+useEffect(() => {
+  const root = window.document.documentElement;
+  root.classList.remove("light", "dark");
+
+  if (theme === "system") {
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches 
+      ? "dark" 
+      : "light"
+
+    root.classList.add(systemTheme)
+    return
+  }
+
+  root.classList.add(theme)
+}, [theme, pathname])
+```
+
+### Theme Toggle Component
+
+Users can switch themes using the theme toggle:
+
+```jsx
+// Usage example
+import { ThemeToggle } from "@workspace/theme-toggle";
+
+<ThemeToggle />
+```
+
+<Tip>
+  The system theme automatically adapts to the user's operating system preferences for a native experience.
+</Tip>
+
+## Document Management
+
+The workspace manages multiple documents with tab-like behavior:
+
+### Loading Documents
+
+```jsx
+// From workspace-provider.jsx:109-124
+const loadDocument = useCallback((__META__, Module) => {
+  try {
+    startTransition(() => {
+      setDocuments(setDocuments => ({
+        ...setDocuments,
+        [__META__.key]: {
+          View: Module.default,
+          ...__META__,
+          active: true,
+        }
+      }));
+    });
+  } catch (err) {
+    goToErrorView(err);
+  }
+}, [goToErrorView]);
+```
+
+### Fetching Documents
+
+When navigating to a new route:
+
+```jsx
+// From workspace-provider.jsx:159-190
+const fetchDocument = useCallback((url) => {
+  const route =  window.location;
+  if (route.hash?.includes("#")) return Promise.resolve();
+
+  const currentFetchId = ++fetchIdRef.current;
+
+  const targetPath = route.pathname;
+  const targetSearch = route.search || '';
+  const preloadedMeta = !!__META_CACHE__[loopar.utils.urlInstance(route)];
+
+  return new Promise((resolve, reject) => {
+    loopar.send({
+      action: targetPath,
+      params: `${targetSearch.length ? targetSearch + "&" : "?"}preloaded=${preloadedMeta}`,
+      success: r => {
+        if (currentFetchId !== fetchIdRef.current) return;
+        
+        lastFetchedPath.current = { pathname: targetPath, search: targetSearch };
+        setDocument(r);
+        resolve();
+      },
+      error: e => {
+        if (currentFetchId !== fetchIdRef.current) return;
+        
+        if (lastFetchedPath.current) {
+          navigate(lastFetchedPath.current.pathname + lastFetchedPath.current.search, { replace: true });
+        }
+        loopar.throw(e);
+      }
+    });
+  });
+}, [setDocument, navigate]);
+```
+
+Key features:
+- Race condition prevention with fetch IDs
+- Metadata caching for performance
+- Graceful error handling with fallback
+- Promise-based async loading
+
+<Note>
+  The workspace caches document metadata to avoid redundant server requests when navigating back to previously visited pages.
+</Note>
+
+## Navigation Structure
+
+### Desk Workspace Navigation
+
+The desk workspace includes top navigation and a collapsible sidebar:
+
+```jsx
+// From desk-workspace.jsx:6-32
+export default function DeskWorkspace(props){
+  const {openNav, ActiveView} = useWorkspace();
+  const menuData = props.menuData || [];
+
+  return (
+    <BaseWorkspace menuData={menuData}>
+      <div className="vaul-drawer-wrapper flex flex-col min-h-screen">
+        <meta name="robots" content="noindex, nofollow"/>
+        <TopNav openNav={openNav}></TopNav>
+        <section className="flex flex-col flex-1">
+          <SideNav items={menuData} />
+          <div
+            className={`flex flex-col flex-1 w-full p-4 overflow-auto duration-100 ease-in ${
+              openNav ? "lg:!pl-sidebar-width" : "lg:!pl-collapse-sidebar-width"
+            }`}
+          >
+            {ActiveView}
+          </div>
+        </section>
+      </div>
+    </BaseWorkspace>
+  )
+}
+```
+
+The layout automatically adjusts based on sidebar state:
+- Open: Content shifts right by `sidebar-width`
+- Collapsed: Content shifts right by `collapse-sidebar-width`
+
+## Sidebar Component
+
+The designer sidebar contains the element palette and editor:
+
+```jsx
+// From sidebar.jsx:10-75
+export const Sidebar = () => {
+  const { handleSetSidebarOpen, sidebarOpen, docRef } = useDocument();
+  const { handleChangeMode, designerModeType, updatingElement, dragEnabled, setDragEnable } = useDesigner();
+  
+  return (
+    <div 
+      className="w-sidebar-width mt-header-height pb-header-height bg-background dark:bg-background-dark border-l border-border dark:border-border-dark"
+      style={{position: "fixed", top: 0, right: 0, zIndex: 30, width: 320, height: "100vh"}}
+    >
+      <div className="flex flex-col p-1 w-full h-full">
+        <div className='flex gap-1 pb-1'>
+          <Button
+            variant="secondary"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleChangeMode();
+            }}
+          >
+            {designerModeType == "designer" ? <EyeIcon/> : <BrushIcon/>}
+          </Button>
+          <Button 
+            className={dragEnabled ? 'bg-red-500' : 'bg-secondary'}
+            onClick={() => {
+              setDragEnable && setDragEnable(!dragEnabled);
+            }}
+          >
+            <HandGrab/>
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              docRef.save();
+            }}
+          >
+            <SaveIcon className="mr-2" />
+            <span>Save</span>
+          </Button>
+          <Button
+            variant="secondary"
+            className="absolute right-0"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSetSidebarOpen(false);
+            }}
+          >
+            <XIcon className="float-right" />
+          </Button>
+        </div>
+        <Separator/>
+        <div style={{height: "calc(100% - 50px)", overflowY: "auto"}}>
+          {
+            (designerModeType == "editor") ? (
+              <ElementEditor key={updatingElement?.data.key}/>
+            ) : <DesignerForm/>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+The sidebar:
+- Fixed position on the right side
+- Full viewport height
+- Switches between element palette and editor
+- Includes mode toggle, drag toggle, and save buttons
+
+## Dialog System
+
+The workspace includes a global dialog system:
+
+```jsx
+// From base-workspace.jsx:41-115
+export function DialogContextProvider() {
+  const [dialogs, setDialogs] = useState({});
+  const dialogsRef = useRef({});
+  const { theme } = useWorkspace();
+
+  const setDialog = (dialog) => {
+    dialogsRef.current[dialog.id] = dialog;
+    handleSetDialogs({ ...dialogsRef.current });
+  }
+
+  const setNotify = ({ title, message, type = "info", timeout = 5000 }) => {
+    (toast[type] || toast)(title || loopar.utils.Capitalize(type), {
+      description: message,
+      duration: timeout,
+      theme: theme
+    });
+  }
+
+  // ... dialog management
+}
+```
+
+### Using Dialogs
+
+```jsx
+import loopar from "loopar";
+
+// Simple alert
+loopar.alert("Title", "Message");
+
+// Confirmation dialog
+loopar.confirm("Are you sure?", () => {
+  // Confirmed action
+});
+
+// Custom dialog
+loopar.dialog({
+  title: "Custom Dialog",
+  content: <YourComponent />,
+  size: "lg",
+  actions: [
+    { label: "Cancel", onClick: () => {} },
+    { label: "OK", onClick: () => {} }
+  ]
+});
+```
+
+### Notifications
+
+```jsx
+// Toast notifications
+loopar.notify({
+  title: "Success",
+  message: "Operation completed",
+  type: "success", // "info" | "success" | "warning" | "error"
+  timeout: 5000
+});
+```
+
+<Tip>
+  Notifications automatically adapt to the current theme and dismiss after the specified timeout.
+</Tip>
+
+## Loading States
+
+The workspace displays a loading indicator during transitions:
+
+```jsx
+// From base-workspace.jsx:15-39
+const Loading = () => {
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const handleLoading = (freeze) => {
+      setLoading(freeze);
+    };
+
+    Emitter.on('freeze', handleLoading);
+    return () => {
+      Emitter.off('freeze', handleLoading);
+    };
+  }, []);
+
+  return loading ? (
+    <div 
+      style={{ zIndex: 1000 }}
+      className="fixed backdrop-blur-sm top-0 left-0 w-full h-full transition-all ease-in-out duration-600"
+    >
+      <div className="flex justify-center items-center w-full h-full">
+        <Loader2Icon className="text-slate-500 w-10 h-10 animate-spin" />
+      </div>
+    </div>
+  ) : null;
+};
+```
+
+Trigger loading state:
+
+```jsx
+import Emitter from '@services/emitter/emitter';
+
+// Show loading
+Emitter.emit('freeze', true);
+
+// Hide loading
+Emitter.emit('freeze', false);
+```
+
+## Refresh Mechanism
+
+The workspace can refresh the current view:
+
+```jsx
+// From workspace-provider.jsx:192-196
+const refresh = useCallback(() => {
+  fetchDocument(pathname).then(() => {
+    setRefreshFlag(prev => !prev);
+  });
+}, [pathname, fetchDocument]);
+```
+
+Use it in your components:
+
+```jsx
+const { refresh } = useWorkspace();
+
+// Refresh after an operation
+const handleSave = async () => {
+  await saveData();
+  refresh();
+};
+```
+
+## Active Document Tracking
+
+```jsx
+// From workspace-provider.jsx:198-205
+const getActiveDocument = useCallback(() => {
+  return (Object.values(Documents).find(Document => Document.active) || {}).Document
+}, [Documents]);
+
+const getActiveParentMenu = useCallback(() => {
+  const Document = getActiveDocument();
+  return Document?.activeParentMenu || Document.Entity?.name;
+}, [getActiveDocument]);
+```
+
+## Navigation State Persistence
+
+Sidebar state persists across sessions using cookies:
+
+```jsx
+// From workspace-provider.jsx:68
+const [openNav, setOpenNav] = useCookies(__WORKSPACE_NAME__);
+```
+
+## Error Handling
+
+When a document fails to load, the workspace displays an error view:
+
+```jsx
+// From workspace-provider.jsx:93-107
+const goToErrorView = useCallback((e) => {
+  __META__.Document = {
+    key: "error404",
+    entryPoint: "error-view",
+  };
+  AppSourceLoader(__META__.Document).then((Module) => {
+    __META__.Document.data = {
+      code: 404,
+      title: "Source not found",
+      description: e.message
+    };
+
+    loadDocument(__META__, Module);
+  });
+}, [__META__]);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Workspace Context">
+    Access workspace state through the `useWorkspace` hook rather than prop drilling.
+  </Accordion>
+  <Accordion title="Handle Loading States">
+    Always show loading indicators during async operations to improve perceived performance.
+  </Accordion>
+  <Accordion title="Respect Theme Preference">
+    Use theme-aware components and styles that work in both light and dark modes.
+  </Accordion>
+  <Accordion title="Cache Strategically">
+    Leverage the workspace's metadata cache for frequently accessed documents.
+  </Accordion>
+  <Accordion title="Error Gracefully">
+    Provide helpful error messages and recovery options when operations fail.
+  </Accordion>
+</AccordionGroup>
+
+## Workspace Customization
+
+You can customize the workspace by:
+
+1. **Creating Custom Workspaces**: Extend `BaseWorkspace` with your own layout
+2. **Custom Menu Items**: Pass custom `menuData` to define navigation structure
+3. **Theme Extensions**: Add custom theme colors through CSS variables
+4. **Custom Dialogs**: Create reusable dialog components for common operations
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Overview" icon="book" href="/designer/overview">
+    Designer capabilities and features
+  </Card>
+  <Card title="Drag and Drop" icon="hand" href="/designer/drag-and-drop">
+    Build UIs with drag and drop
+  </Card>
+  <Card title="Element Editor" icon="sliders" href="/designer/element-editor">
+    Configure component properties
+  </Card>
+</CardGroup>

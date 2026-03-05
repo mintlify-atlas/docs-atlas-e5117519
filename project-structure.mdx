@@ -1,0 +1,664 @@
+---
+title: Project Structure
+description: Understanding Loopar Framework's monorepo architecture and directory organization
+---
+
+# Project Structure
+
+Loopar Framework uses a monorepo architecture with pnpm workspaces, organizing code into logical packages for maintainability and modularity.
+
+## Directory Overview
+
+```bash
+loopar-framework/
+├── app/                    # Application entry points
+├── bin/                    # CLI scripts and tools
+├── packages/               # Monorepo packages
+├── public/                 # Static assets
+├── sites/                  # Multi-tenant site configurations
+├── main.html               # HTML template
+├── package.json            # Root package configuration
+├── pnpm-workspace.yaml     # Workspace configuration
+├── tsconfig.json           # TypeScript configuration
+└── vite.config.js          # Vite build configuration
+```
+
+## Root Configuration Files
+
+### package.json
+
+The root package.json defines the monorepo and available scripts:
+
+```json package.json
+{
+  "name": "loopar-framework",
+  "version": "5.0.1",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "preinstall": "node bin/installer-clean.js",
+    "postinstall": "node bin/ensure-site.js",
+    
+    "dev": "node bin/loopar-cli.js dev && pm2 logs",
+    "start": "node bin/loopar-cli.js start",
+    "stop": "node bin/loopar-cli.js stop",
+    "restart": "node bin/loopar-cli.js restart",
+    "logs": "node bin/loopar-cli.js logs",
+    "list": "node bin/loopar-cli.js list",
+    
+    "build": "node bin/build-clean.js && npm-run-all build:client build:server",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --outDir dist/server --ssr app/entry-server.jsx"
+  },
+  "bin": {
+    "loopar": "./bin/loopar-cli.js"
+  }
+}
+```
+
+<Note>
+  The framework requires **Node.js 22.12.0+** and uses ES modules (`"type": "module"`).
+</Note>
+
+### pnpm-workspace.yaml
+
+```yaml pnpm-workspace.yaml
+packages:
+  - "packages/*"
+```
+
+This configuration tells pnpm to treat all directories in `packages/` as workspace packages.
+
+### tsconfig.json
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*",
+        "./.loopar/*",
+        "./.loopar/service/*"
+      ]
+    }
+  }
+}
+```
+
+Key features:
+- Path aliases for clean imports (`@/*`)
+- Strict type checking enabled
+- JSX preservation for React
+
+### vite.config.js
+
+```javascript vite.config.js
+export { default } from "vite-env";
+```
+
+The Vite configuration is exported from the `vite-env` package, allowing centralized build configuration.
+
+## App Directory
+
+The `app/` directory contains application entry points and routing:
+
+```bash
+app/
+├── App.tsx              # Main application component
+├── Router.jsx           # Routing configuration
+├── entry-client.jsx     # Client-side entry point
+├── entry-server.jsx     # Server-side entry point
+└── src/                 # Application-specific source
+```
+
+### App.tsx
+
+The main application component that sets up providers and workspace:
+
+```tsx app/App.tsx
+import { cn } from "@cn/lib/utils";
+import React, {useEffect} from "react";
+import {CookiesProvider} from '@services/cookie';
+import { WorkspaceProvider } from "@workspace/workspace-provider";
+import { useNavigate } from 'react-router';
+
+const Main = ({ __META__ }: RootLayoutProps) => {
+  const { components, Document } = __META__;
+  const { Workspace, View } = components;
+
+  return (
+    <main className={cn("h-full font-sans antialiased")}>
+      <div className="relative flex flex-col">
+        <div className="flex-1" translate="yes">
+          <WorkspaceProvider
+            __META__={__META__}
+            Documents={{
+              [Document.name]: {
+                ...__META__,
+                View,
+                active: true,
+              }
+            }}
+          >
+            <Workspace menuData={__META__.menu_data} />
+          </WorkspaceProvider>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+const App = ({ __META__ }: RootLayoutProps) => {
+  const { cookieManager } = __META__.services;
+
+  return (
+    <CookiesProvider manager={cookieManager} updater={setUpdate}>
+      <Main __META__={__META__} />
+    </CookiesProvider>
+  )
+}
+
+export default App;
+```
+
+Key responsibilities:
+- Initialize providers (Cookies, Workspace)
+- Set up routing and navigation
+- Manage application metadata (`__META__`)
+- Handle authentication state
+
+### Entry Points
+
+**entry-client.jsx**: Hydrates the React app on the client
+
+**entry-server.jsx**: Handles server-side rendering
+
+These enable Loopar's SSR capabilities for improved performance and SEO.
+
+## Binary Scripts (`bin/`)
+
+The `bin/` directory contains CLI tools for managing the framework:
+
+```bash
+bin/
+├── loopar-cli.js              # Main CLI interface
+├── loopar-status.js           # Process status display
+├── loopar.ecosystem.config.mjs # PM2 configuration
+├── ensure-site.js             # Site creation utility
+├── installer-clean.js         # Cleanup script
+└── build-clean.js             # Build cleanup
+```
+
+### loopar-cli.js
+
+The primary CLI tool with these commands:
+
+<CardGroup cols={2}>
+  <Card title="dev" icon="code">
+    Start development server with PM2 and log tailing
+  </Card>
+  <Card title="start" icon="play">
+    Start production server for specified site or all sites
+  </Card>
+  <Card title="stop" icon="stop">
+    Stop running processes
+  </Card>
+  <Card title="restart" icon="rotate">
+    Restart processes without downtime
+  </Card>
+  <Card title="delete" icon="trash">
+    Remove processes from PM2
+  </Card>
+  <Card title="logs" icon="file-text">
+    Stream application logs
+  </Card>
+  <Card title="list/status" icon="list">
+    Display running process status
+  </Card>
+</CardGroup>
+
+```javascript bin/loopar-cli.js
+#!/usr/bin/env node
+
+import { execSync } from 'child_process';
+import path from 'path';
+import chalk from 'chalk';
+
+const projectPath = process.cwd();
+const projectName = path.basename(projectPath);
+
+function getProcessName(siteName) {
+  return `${projectName}-${siteName}`;
+}
+
+const namespace = `${projectName}-`;
+
+const commands = {
+  dev() {
+    console.log(chalk.cyan(`Starting ${namespace}core site.`));
+    pm2Command(`node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env development`);
+  },
+  
+  start(siteName) {
+    console.log(chalk.cyan('Starting core site.'));
+    pm2Command(`node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env production`);
+  },
+  
+  // ... more commands
+};
+
+const [,, command, siteName] = process.argv;
+commands[command](siteName);
+```
+
+### ensure-site.js
+
+Automatically creates development site structure:
+
+```javascript bin/ensure-site.js
+async function createDevSite() {
+  const siteName = 'dev';
+  const port = process.env.PORT || 3000;
+  const sitePath = path.join(process.cwd(), 'sites', siteName);
+
+  await fs.mkdir(sitePath, { recursive: true });
+  await fs.mkdir(path.join(sitePath, 'sessions'), { recursive: true });
+  await fs.mkdir(path.join(sitePath, 'config'), { recursive: true });
+  await fs.mkdir(path.join(sitePath, 'public', 'uploads'), { recursive: true });
+
+  const envContent = `PORT=${port}
+NAME=${siteName}
+TENANT_ID=${siteName}
+NODE_ENV=development
+`;
+
+  await fs.writeFile(path.join(sitePath, '.env'), envContent);
+
+  console.log(`✅ Dev site created: sites/${siteName}`);
+  console.log(`   URL: http://localhost:${port}\n`);
+}
+```
+
+## Packages Directory
+
+The heart of Loopar's modular architecture:
+
+```bash
+packages/
+├── loopar/           # Core framework
+├── vite-env/         # Vite build configuration
+├── server-env/       # Express server utilities
+├── db-env/           # Database and ORM
+├── react-env/        # React and UI libraries
+├── shadcn/           # Shadcn UI components
+├── builder/          # Build tools
+├── markdown/         # Markdown editor
+├── radix-env/        # Radix UI primitives
+├── tailwind-env/     # Tailwind CSS config
+├── types-env/        # TypeScript types
+└── shared/           # Shared utilities
+```
+
+### loopar (Core Package)
+
+The main framework package:
+
+```bash
+packages/loopar/
+├── package.json
+├── bin/
+│   └── loopar-cli.js
+├── src/
+│   ├── components/          # UI component library
+│   ├── workspace/           # Workspace management
+│   ├── context/             # React contexts
+│   ├── tools/               # Utilities
+│   ├── loopar.jsx           # Core framework
+│   ├── loader.jsx           # Module loader
+│   └── components-loader.jsx # Component registry
+```
+
+```json packages/loopar/package.json
+{
+  "name": "loopar",
+  "version": "2.0.6",
+  "type": "module",
+  "bin": {
+    "loopar": "./bin/loopar-cli.js"
+  },
+  "dependencies": {
+    "pm2": "6.0.13",
+    "@pm2/io": "6.1.0",
+    "cli-table3": "0.6.5",
+    "inquirer": "^9.2.0",
+    "ora": "^7.0.0",
+    "chalk": "^5.3.0",
+    "es-toolkit": "v1.43.0"
+  }
+}
+```
+
+### Components
+
+All UI components are in `packages/loopar/src/components/`:
+
+```bash
+components/
+├── base/                # Base component classes
+│   ├── component.jsx
+│   ├── ComponentDefaults.jsx
+│   └── ...
+├── button.jsx
+├── card.jsx
+├── checkbox.jsx
+├── date.jsx
+├── date-time.jsx
+├── designer/            # Visual designer
+├── dialog.jsx
+├── input.jsx
+├── table/
+└── ...
+```
+
+Each component follows this pattern:
+
+```jsx
+import { ComponentUI } from "@cn/components/ui/component";
+import loopar from "loopar";
+
+export default function MetaComponent(props) {
+  const data = props.data || {};
+  
+  return (
+    <ComponentUI
+      {...loopar.utils.renderizableProps(props)}
+      // component-specific props
+    >
+      {/* content */}
+    </ComponentUI>
+  );
+}
+
+// Optional: Define configurable fields
+MetaComponent.metaFields = () => {
+  return [/* field definitions */];
+};
+```
+
+### vite-env
+
+Centralized Vite configuration:
+
+```json packages/vite-env/package.json
+{
+  "name": "vite-env",
+  "version": "1.0.0",
+  "type": "module",
+  "devDependencies": {
+    "@vitejs/plugin-react": "5.1.2",
+    "vite": "7.3.1",
+    "express": "5.2.1",
+    "vite-plugin-preload": "0.4.4",
+    "vite-plugin-svgr": "4.5.0",
+    "vite-plugin-compression2": "2.4.0"
+  }
+}
+```
+
+### server-env
+
+Server middleware and utilities:
+
+```json packages/server-env/package.json
+{
+  "name": "server-env",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "express-session": "1.18.2",
+    "express-useragent": "2.0.2",
+    "cookie-parser": "1.4.7",
+    "js-cookie": "3.0.5",
+    "universal-cookie": "8.0.1",
+    "multer": "2.0.2"
+  }
+}
+```
+
+### db-env
+
+Database abstraction layer:
+
+```json packages/db-env/package.json
+{
+  "name": "db-env",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@sequelize/core": "7.0.0-alpha.47",
+    "@sequelize/mariadb": "7.0.0-alpha.47",
+    "@sequelize/mysql": "7.0.0-alpha.47",
+    "@sequelize/sqlite3": "7.0.0-alpha.47",
+    "sequelize": "v7.0.0-next.1"
+  }
+}
+```
+
+Supports:
+- **MySQL**: Production-ready relational database
+- **MariaDB**: MySQL-compatible alternative
+- **SQLite**: Development and embedded scenarios
+
+### react-env
+
+React and UI libraries:
+
+```json packages/react-env/package.json
+{
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-router": "^7.2.0",
+    "lucide-react": "^0.545.0",
+    "@tinymce/tinymce-react": "6.3.0"
+  }
+}
+```
+
+## Sites Directory
+
+Multi-tenant site configurations:
+
+```bash
+sites/
+└── dev/                    # Development site
+    ├── .env                # Environment variables
+    ├── config/             # Site-specific configuration
+    ├── sessions/           # User sessions
+    └── public/
+        └── uploads/        # Uploaded files
+```
+
+### Site Configuration
+
+Each site has its own `.env` file:
+
+```bash sites/dev/.env
+PORT=3000
+NAME=dev
+TENANT_ID=dev
+NODE_ENV=development
+```
+
+<Note>
+  Each site can have different database connections, ports, and configurations, enabling true multi-tenancy.
+</Note>
+
+## Public Directory
+
+Static assets served directly:
+
+```bash
+public/
+├── images/             # Image assets
+└── ...                 # Other static files
+```
+
+## Build Output
+
+When you run `pnpm run build`, the output structure is:
+
+```bash
+dist/
+├── client/             # Client-side bundle
+│   ├── assets/
+│   └── index.html
+└── server/             # SSR bundle
+    └── entry-server.js
+```
+
+## Import Aliases
+
+Loopar uses path aliases for cleaner imports:
+
+| Alias | Resolves To | Usage |
+|-------|-------------|-------|
+| `@/*` | `./src/*` | Application source |
+| `@cn` | `cn` package | Shadcn UI components |
+| `@context` | `loopar/src/context` | React contexts |
+| `@workspace` | `loopar/src/workspace` | Workspace components |
+| `@droppable` | Component droppable | Designer droppables |
+| `@services` | Services | Shared services |
+| `loopar` | `loopar` package | Core framework |
+
+Example:
+
+```javascript
+// Instead of:
+import Button from '../../../packages/loopar/src/components/button.jsx';
+
+// Use:
+import Button from '@/components/button.jsx';
+import { cn } from '@cn/lib/utils';
+import loopar from 'loopar';
+```
+
+## Key Concepts
+
+<AccordionGroup>
+  <Accordion title="Monorepo Benefits">
+    - **Code Sharing**: Easy to share code between packages
+    - **Atomic Changes**: Update multiple packages in one commit
+    - **Dependency Management**: Centralized version control
+    - **Build Optimization**: Shared build configuration
+  </Accordion>
+  
+  <Accordion title="Workspace Pattern">
+    Packages can depend on each other:
+    ```json
+    {
+      "dependencies": {
+        "loopar": "workspace:*",
+        "cn": "workspace:*"
+      }
+    }
+    ```
+    The `workspace:*` protocol tells pnpm to use local packages.
+  </Accordion>
+  
+  <Accordion title="Module Federation">
+    Components and modules are dynamically loaded:
+    - Reduces initial bundle size
+    - Enables lazy loading
+    - Supports hot module replacement
+  </Accordion>
+  
+  <Accordion title="Multi-Tenancy Architecture">
+    Each site is isolated:
+    - Separate configuration
+    - Independent databases
+    - Isolated sessions
+    - Own process with PM2
+  </Accordion>
+</AccordionGroup>
+
+## Development Guidelines
+
+<Steps>
+  <Step title="Adding New Packages">
+    Create a new package:
+    ```bash
+    mkdir packages/my-package
+    cd packages/my-package
+    npm init -y
+    ```
+    
+    Update `package.json`:
+    ```json
+    {
+      "name": "my-package",
+      "version": "1.0.0",
+      "type": "module"
+    }
+    ```
+  </Step>
+  
+  <Step title="Creating Components">
+    Add components to `packages/loopar/src/components/`:
+    ```jsx
+    export default function MyComponent(props) {
+      return <div>{/* component */}</div>;
+    }
+    ```
+    
+    Register in `components-loader.jsx`.
+  </Step>
+  
+  <Step title="Modifying Configuration">
+    - **Build**: Edit `packages/vite-env`
+    - **TypeScript**: Update root `tsconfig.json`
+    - **ESLint**: Modify `.eslintrc.json`
+    - **Prettier**: Edit `prettier.config.js`
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="puzzle-piece" href="/components/overview">
+    Explore the component library in detail
+  </Card>
+  
+  <Card title="Database" icon="database" href="/database/overview">
+    Learn about data modeling and ORM usage
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api/loopar">
+    Detailed API documentation
+  </Card>
+  
+  <Card title="CLI Commands" icon="rocket" href="/cli/overview">
+    Learn about CLI commands for deployment
+  </Card>
+</CardGroup>

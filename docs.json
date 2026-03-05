@@ -1,122 +1,134 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Loopar Framework",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#FF6B35",
+    "light": "#FFB88C",
+    "dark": "#C44B25"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/alphabit-technology/loopar-framework"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/alphabit-technology/loopar-framework"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
+              "installation",
               "quickstart",
-              "development"
+              "project-structure"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/documents",
+              "concepts/controllers",
+              "concepts/components",
+              "concepts/routing",
+              "concepts/modules"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Visual Designer",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "designer/overview",
+              "designer/drag-and-drop",
+              "designer/element-editor",
+              "designer/workspace"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Components",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "components/overview",
+              "components/layout",
+              "components/forms",
+              "components/data-display",
+              "components/custom"
+            ]
+          },
+          {
+            "group": "Database",
+            "pages": [
+              "database/overview",
+              "database/models",
+              "database/queries",
+              "database/migrations"
+            ]
+          },
+          {
+            "group": "Building Applications",
+            "pages": [
+              "guides/creating-modules",
+              "guides/controllers-guide",
+              "guides/authentication",
+              "guides/file-management",
+              "guides/theming"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commands",
             "pages": [
-              "api-reference/introduction"
+              "cli/overview",
+              "cli/dev",
+              "cli/start-stop",
+              "cli/management"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/loopar",
+              "api/base-document",
+              "api/base-controller",
+              "api/file-manager"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Controllers",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/controllers/single-controller",
+              "api/controllers/page-controller",
+              "api/controllers/form-controller",
+              "api/controllers/view-controller",
+              "api/controllers/report-controller"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/helpers",
+              "api/date-utils",
+              "api/element-definition"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

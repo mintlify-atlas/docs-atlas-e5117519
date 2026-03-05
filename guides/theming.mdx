@@ -1,0 +1,544 @@
+---
+title: Theming and Styling
+description: Learn how to customize themes, colors, and styling in Loopar Framework
+---
+
+Loopar provides a powerful theming system built on Tailwind CSS with automatic dark mode support and dynamic theme generation.
+
+## Theme Architecture
+
+The theming system consists of:
+
+1. **Theme Colors** (`packages/loopar/core/global/themes.js`) - Predefined color palettes
+2. **Theme Generator** (`packages/loopar/core/global/theme-generator.js`) - Dynamic CSS generation
+3. **Tailwind Configuration** (`packages/tailwind-env/tailwind.config.js`) - Styling framework
+
+## Available Themes
+
+Loopar includes 22 built-in color themes:
+
+```javascript title="themes.js"
+export const themes = [
+  {name: 'red', twcolor: 'bg-red-500', color: '#EF4444'},
+  {name: 'rose', twcolor: 'bg-rose-500', color: '#F43F5E'},
+  {name: 'orange', twcolor: 'bg-orange-500', color: '#F97316'},
+  {name: 'amber', twcolor: 'bg-amber-500', color: '#F59E0B'},
+  {name: 'yellow', twcolor: 'bg-yellow-500', color: '#EAB308'},
+  {name: 'lime', twcolor: 'bg-lime-500', color: '#84CC16'},
+  {name: 'green', twcolor: 'bg-green-500', color: '#22C55E'},
+  {name: 'emerald', twcolor: 'bg-emerald-500', color: '#10B981'},
+  {name: 'teal', twcolor: 'bg-teal-500', color: '#14B8A6'},
+  {name: 'cyan', twcolor: 'bg-cyan-500', color: '#06B6D4'},
+  {name: 'sky', twcolor: 'bg-sky-500', color: '#0EA5E9'},
+  {name: 'blue', twcolor: 'bg-blue-500', color: '#3B82F6'},
+  {name: 'indigo', twcolor: 'bg-indigo-500', color: '#6366F1'},
+  {name: 'violet', twcolor: 'bg-violet-500', color: '#8B5CF6'},
+  {name: 'purple', twcolor: 'bg-purple-500', color: '#A855F7'},
+  {name: 'fuchsia', twcolor: 'bg-fuchsia-500', color: '#D946EF'},
+  {name: 'pink', twcolor: 'bg-pink-500', color: '#EC4899'},
+  {name: 'stone', twcolor: 'bg-stone-500', color: '#78716C'},
+  {name: 'neutral', twcolor: 'bg-neutral-500', color: '#737373'},
+  {name: 'zinc', twcolor: 'bg-zinc-500', color: '#71717A'},
+  {name: 'gray', twcolor: 'bg-gray-500', color: '#6B7280'},
+  {name: 'slate', twcolor: 'bg-slate-500', color: '#64748B'},
+];
+```
+
+## Generating Theme CSS
+
+Dynamically generate theme CSS with light and dark mode support:
+
+```javascript title="theme-generator.js"
+import { generateThemeCSS } from "loopar";
+
+// Generate CSS for a theme
+const css = generateThemeCSS('blue', {
+  includeTitles: true,      // Include title color gradients
+  minify: false,            // Minify output
+  contrastThreshold: 4.5,   // WCAG contrast ratio
+  darkMode: 'auto',         // 'auto', 'custom'
+  darkIntensity: 0.95,      // Dark mode intensity (0-1)
+  darkCustomColor: null     // Custom dark background color
+});
+
+console.log(css);
+```
+
+Output example:
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 47.4% 11.2%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
+  --border: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 224 71% 4%;
+  --foreground: 213 31% 91%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 1.2%;
+  --card: 224 71% 3%;
+  --border: 216 34% 17%;
+}
+```
+
+## Theme Options
+
+### Contrast Threshold
+
+Ensure WCAG accessibility compliance:
+
+```javascript
+// Higher contrast for better readability
+const accessibleTheme = generateThemeCSS('blue', {
+  contrastThreshold: 7.0  // WCAG AAA standard
+});
+
+// Default WCAG AA standard
+const standardTheme = generateThemeCSS('blue', {
+  contrastThreshold: 4.5
+});
+```
+
+### Dark Mode Intensity
+
+Control dark mode background darkness:
+
+```javascript
+// Very dark (95% intensity)
+const darkTheme = generateThemeCSS('blue', {
+  darkIntensity: 0.95
+});
+
+// Medium dark (50% intensity)
+const mediumTheme = generateThemeCSS('blue', {
+  darkIntensity: 0.50
+});
+
+// Pure black (0% intensity)
+const blackTheme = generateThemeCSS('blue', {
+  darkIntensity: 0
+});
+```
+
+### Custom Dark Colors
+
+```javascript
+const customDarkTheme = generateThemeCSS('blue', {
+  darkMode: 'custom',
+  darkCustomColor: '#1a1a2e',
+  darkIntensity: 0.95
+});
+```
+
+## Neutral Themes
+
+Loopar detects neutral themes automatically:
+
+```javascript title="theme-generator.js"
+import { isNeutralTheme, NEUTRAL_THEMES } from "loopar";
+
+// Check if theme is neutral
+const isNeutral = isNeutralTheme('zinc');  // true
+const isColorful = isNeutralTheme('blue'); // false
+
+// Neutral themes
+console.log(NEUTRAL_THEMES);
+// ['slate', 'gray', 'zinc', 'neutral', 'stone']
+```
+
+Neutral themes have special handling:
+- Lower saturation in dark mode
+- Adjusted color mixing
+- Enhanced readability
+
+## Generating All Themes
+
+Generate CSS for all available themes:
+
+```javascript
+import { generateThemeVariations } from "loopar";
+
+const allThemes = generateThemeVariations({
+  includeTitles: true,
+  minify: false,
+  contrastThreshold: 4.5,
+  darkIntensity: 0.95
+});
+
+// Access individual themes
+const blueCSS = allThemes.blue;
+const redCSS = allThemes.red;
+```
+
+## Tailwind Configuration
+
+Loopar uses Tailwind CSS with custom configuration:
+
+```javascript title="tailwind.config.js"
+export default {
+  mode: 'jit',
+  darkMode: ["class"],
+  content: [
+    '../../src/**/*.{ts,tsx,js,jsx}',
+    '../../apps/**/*.{tsx,jsx,json}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      spacing: {
+        page: "calc(100vh - 6rem)",
+        sidebarWidth: "250px",
+        collapseSidebarWidth: "80px",
+        headerHeight: "4rem",
+        footerHeight: "4rem",
+      },
+    },
+  },
+};
+```
+
+## Using Theme Colors
+
+Apply theme colors in your components:
+
+```jsx
+// Primary color
+<button className="bg-primary text-primary-foreground">
+  Click Me
+</button>
+
+// Secondary color
+<div className="bg-secondary text-secondary-foreground">
+  Content
+</div>
+
+// Card with border
+<div className="bg-card text-card-foreground border border-border">
+  Card content
+</div>
+
+// Destructive (error) state
+<button className="bg-destructive text-destructive-foreground">
+  Delete
+</button>
+```
+
+## Custom Spacing
+
+Loopar provides custom spacing variables:
+
+```jsx
+// Full page height minus header/footer
+<div className="h-page">
+  Content area
+</div>
+
+// Sidebar widths
+<aside className="w-sidebarWidth">
+  Sidebar
+</aside>
+
+<aside className="w-collapseSidebarWidth">
+  Collapsed sidebar
+</aside>
+
+// Header and footer heights
+<header className="h-headerHeight">
+  Header
+</header>
+
+<footer className="h-footerHeight">
+  Footer
+</footer>
+```
+
+## Custom Animations
+
+Use built-in animations:
+
+```jsx
+// Fade in from bottom
+<div className="animate-fadeInUp">
+  Fading content
+</div>
+
+// Flip animations
+<div className="animate-flipUp">
+  Flipping content up
+</div>
+
+<div className="animate-flipDown">
+  Flipping content down
+</div>
+
+// Accordion animations
+<div className="animate-accordion-down">
+  Opening accordion
+</div>
+```
+
+## Dark Mode Support
+
+Toggle dark mode using the `dark` class:
+
+```jsx
+// Apply dark mode to root element
+<html className="dark">
+  <body>
+    {/* All components now use dark mode colors */}
+  </body>
+</html>
+```
+
+```javascript
+// Toggle dark mode programmatically
+function toggleDarkMode() {
+  document.documentElement.classList.toggle('dark');
+}
+```
+
+## Color Validation
+
+Validate colors before using them:
+
+```javascript
+import { isValidColor, getContrast } from "loopar";
+
+// Check if color is valid
+if (isValidColor('#3B82F6')) {
+  console.log('Valid color');
+}
+
+// Check contrast ratio
+const contrast = getContrast('#3B82F6', '#FFFFFF');
+if (contrast >= 4.5) {
+  console.log('Meets WCAG AA standard');
+}
+```
+
+## Preview Dark Background
+
+Preview how a theme's dark mode will look:
+
+```javascript
+import { previewDarkBackground } from "loopar";
+
+// Auto-generated dark background
+const darkBg = previewDarkBackground('blue', 0.95, 'auto');
+console.log(darkBg); // "#0a1628"
+
+// Custom dark background
+const customDarkBg = previewDarkBackground(
+  'blue',
+  0.95,
+  'custom',
+  '#1a1a2e'
+);
+console.log(customDarkBg); // "#0c0c17"
+```
+
+## Implementing Theme Switcher
+
+<Steps>
+
+### Step 1: Store Theme Preference
+
+```javascript
+// Save theme to local storage
+function setTheme(themeName) {
+  localStorage.setItem('theme', themeName);
+  applyTheme(themeName);
+}
+
+// Get saved theme
+function getTheme() {
+  return localStorage.getItem('theme') || 'blue';
+}
+```
+
+### Step 2: Generate and Apply Theme
+
+```javascript
+import { generateThemeCSS } from "loopar";
+
+function applyTheme(themeName) {
+  // Generate CSS
+  const css = generateThemeCSS(themeName, {
+    includeTitles: true,
+    contrastThreshold: 4.5,
+    darkIntensity: 0.95
+  });
+  
+  // Inject into page
+  let styleTag = document.getElementById('theme-styles');
+  if (!styleTag) {
+    styleTag = document.createElement('style');
+    styleTag.id = 'theme-styles';
+    document.head.appendChild(styleTag);
+  }
+  styleTag.textContent = css;
+}
+```
+
+### Step 3: Create Theme Selector
+
+```jsx
+import { themes } from "loopar";
+
+function ThemeSelector() {
+  const currentTheme = getTheme();
+  
+  return (
+    <div className="flex gap-2">
+      {themes.map(theme => (
+        <button
+          key={theme.name}
+          className={`w-8 h-8 rounded-full ${theme.twcolor}`}
+          onClick={() => setTheme(theme.name)}
+          aria-label={`Switch to ${theme.name} theme`}
+        >
+          {currentTheme === theme.name && '✓'}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+### Step 4: Initialize on Load
+
+```javascript
+// Apply saved theme on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = getTheme();
+  applyTheme(savedTheme);
+});
+```
+
+</Steps>
+
+## CSS Variable Reference
+
+All available CSS variables:
+
+```css
+/* Colors */
+--background
+--foreground
+--card
+--card-foreground
+--popover
+--popover-foreground
+--primary
+--primary-foreground
+--secondary
+--secondary-foreground
+--muted
+--muted-foreground
+--accent
+--accent-foreground
+--destructive
+--destructive-foreground
+--border
+--input
+--ring
+
+/* Border radius */
+--radius
+```
+
+## Best Practices
+
+<Steps>
+
+### Use Semantic Colors
+
+Use semantic color classes instead of specific colors:
+
+```jsx
+// Good - Uses theme colors
+<button className="bg-primary text-primary-foreground">
+  Submit
+</button>
+
+// Avoid - Hard-coded colors
+<button className="bg-blue-500 text-white">
+  Submit
+</button>
+```
+
+### Test Contrast
+
+Ensure adequate contrast for accessibility:
+
+```javascript
+import { getContrast } from "loopar";
+
+const contrast = getContrast(primaryColor, backgroundColor);
+
+if (contrast < 4.5) {
+  console.warn('Insufficient contrast for WCAG AA');
+}
+```
+
+### Support Dark Mode
+
+Always test components in both light and dark modes:
+
+```jsx
+// Works in both modes
+<div className="bg-card text-card-foreground border border-border">
+  Content
+</div>
+```
+
+### Minify Production CSS
+
+Minify generated CSS for production:
+
+```javascript
+const productionCSS = generateThemeCSS('blue', {
+  minify: true,
+  includeTitles: false  // Reduce size if not needed
+});
+```
+
+</Steps>
+
+## Next Steps
+
+- [Creating Modules](/guides/creating-modules) - Build themed modules
+- [Controllers Guide](/guides/controllers-guide) - Create themed controllers
+- [File Management](/guides/file-management) - Handle themed assets

@@ -1,0 +1,690 @@
+---
+title: 'BaseController Class'
+description: 'Core controller class for handling HTTP requests, routing, CRUD actions, and rendering views in Loopar applications'
+---
+
+## Overview
+
+The `BaseController` class extends `CoreController` and provides a complete request handling layer for Loopar Framework applications. It manages routing, authentication, CRUD operations, rendering, and sidebar navigation.
+
+## Import
+
+```javascript
+import { BaseController } from 'loopar';
+```
+
+## Constructor
+
+```javascript
+class MyController extends BaseController {
+  constructor(props) {
+    super(props);
+  }
+}
+```
+
+## Properties
+
+<ResponseField name="defaultAction" type="string" default="list">
+  Default action when no action is specified in the request
+</ResponseField>
+
+<ResponseField name="hasSidebar" type="boolean" default="true">
+  Whether the view should include sidebar navigation
+</ResponseField>
+
+<ResponseField name="document" type="string">
+  Name of the document type this controller handles
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Request data (POST body or query parameters)
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Document name from request (for update/view/delete actions)
+</ResponseField>
+
+<ResponseField name="action" type="string">
+  Current action being executed
+</ResponseField>
+
+<ResponseField name="response" type="object">
+  Response data to be sent to client
+</ResponseField>
+
+<ResponseField name="method" type="string">
+  HTTP method (GET, POST, PUT, DELETE)
+</ResponseField>
+
+<ResponseField name="preloaded" type="string">
+  Flag for preloaded data requests ('true' for API mode)
+</ResponseField>
+
+## CRUD Actions
+
+### actionList()
+
+Handles list view requests with pagination, filtering, and search.
+
+**HTTP Method:** GET or POST  
+**Route:** `/desk/{document}/list`
+
+```javascript
+// In controller
+async actionList() {
+  const list = await loopar.getList(this.document, {
+    q: this.data.q,
+    filters: this.data.filters
+  });
+  
+  return await this.render(list);
+}
+```
+
+**Features:**
+- Pagination with page state management
+- Search query persistence in session
+- Filtering by field values
+- Returns rows and pagination metadata
+
+**Request Example:**
+```javascript
+// GET /desk/User/list?page=2&q[first_name]=John
+
+// POST /desk/User/list
+{
+  page: 2,
+  q: {
+    first_name: 'John',
+    disabled: 0
+  }
+}
+```
+
+**Response:**
+```javascript
+{
+  instance: 'user-list',
+  rows: [...],
+  pagination: {
+    page: 2,
+    pageSize: 10,
+    totalPages: 5,
+    totalRecords: 47
+  },
+  fields: ['name', 'email', 'first_name'],
+  labels: ['Name', 'Email', 'First Name']
+}
+```
+
+### actionCreate()
+
+Handles document creation requests.
+
+**HTTP Method:** GET (show form) or POST (save)  
+**Route:** `/desk/{document}/create`
+
+```javascript
+// In controller
+async actionCreate() {
+  const document = await loopar.newDocument(this.document, this.data);
+  
+  if (this.hasData()) {
+    await document.save();
+    return this.redirect('update?name=' + document.name);
+  } else {
+    return await this.render(await document.__meta__());
+  }
+}
+```
+
+**GET Request (Show Form):**
+```javascript
+// GET /desk/User/create
+// Returns form with empty document
+```
+
+**POST Request (Create Document):**
+```javascript
+// POST /desk/User/create
+{
+  name: 'newuser@example.com',
+  email: 'newuser@example.com',
+  first_name: 'New',
+  last_name: 'User'
+}
+
+// Response:
+{
+  redirect: 'update?name=newuser@example.com'
+}
+```
+
+**Note:** Single documents cannot be created (will throw 404 error).
+
+### actionUpdate()
+
+Handles document update requests.
+
+**HTTP Method:** GET (show form) or POST (save)  
+**Route:** `/desk/{document}/update?name={name}`
+
+```javascript
+// In controller
+async actionUpdate(document) {
+  document ??= await loopar.getDocument(
+    this.document, 
+    this.name, 
+    this.hasData() ? this.data : null
+  );
+  
+  if (this.hasData()) {
+    await document.save();
+    return await this.success('Document saved successfully', {
+      name: document.name
+    });
+  } else {
+    return await this.render(await document.__meta__());
+  }
+}
+```
+
+**GET Request (Show Form):**
+```javascript
+// GET /desk/User/update?name=john@example.com
+// Returns form populated with document data
+```
+
+**POST Request (Update Document):**
+```javascript
+// POST /desk/User/update?name=john@example.com
+{
+  first_name: 'Johnny',
+  last_name: 'Doe'
+}
+
+// Response:
+{
+  status: 200,
+  success: true,
+  message: 'User john@example.com saved successfully',
+  name: 'john@example.com',
+  notify: {
+    type: 'success',
+    message: 'User john@example.com saved successfully'
+  }
+}
+```
+
+### actionView()
+
+Handles read-only document view requests.
+
+**HTTP Method:** GET  
+**Route:** `/desk/{document}/view?name={name}`
+
+```javascript
+// In controller
+async actionView() {
+  const document = await loopar.getDocument(this.document, this.name);
+  return await this.render(document);
+}
+```
+
+### actionDelete()
+
+Handles document deletion requests.
+
+**HTTP Method:** POST  
+**Route:** `/desk/{document}/delete?name={name}`
+
+```javascript
+// In controller
+async actionDelete() {
+  const document = await loopar.getDocument(this.document, this.name);
+  await document.delete();
+  return this.redirect('list');
+}
+```
+
+**Request:**
+```javascript
+// POST /desk/User/delete?name=olduser@example.com
+
+// Response:
+{
+  redirect: 'list'
+}
+```
+
+### actionBulkDelete()
+
+Handles bulk deletion of multiple documents.
+
+**HTTP Method:** POST  
+**Route:** `/desk/{document}/bulk-delete`
+
+```javascript
+// In controller
+async actionBulkDelete() {
+  const names = JSON.parse(this.names);
+  
+  for (const name of names) {
+    const document = await loopar.getDocument(this.document, name);
+    await document.delete();
+  }
+  
+  return this.success(`Documents ${names.join(', ')} deleted successfully`);
+}
+```
+
+**Request:**
+```javascript
+// POST /desk/User/bulk-delete
+{
+  names: '["user1@example.com", "user2@example.com"]'
+}
+
+// Response:
+{
+  status: 200,
+  success: true,
+  message: 'Documents user1@example.com, user2@example.com deleted successfully',
+  notify: {
+    type: 'success',
+    message: 'Documents deleted successfully'
+  }
+}
+```
+
+## Additional Actions
+
+### actionSearch()
+
+Handles search requests for select elements.
+
+**HTTP Method:** GET  
+**Route:** `/desk/{document}/search?q={query}`
+
+```javascript
+// In controller
+async actionSearch() {
+  const document = await loopar.newDocument(this.document);
+  return await document.getListToSelectElement(this.q);
+}
+```
+
+**Request:**
+```javascript
+// GET /desk/User/search?q=john
+
+// Response:
+{
+  title_fields: ['first_name', 'last_name'],
+  rows: [
+    { name: 'john@example.com', first_name: 'John', last_name: 'Doe' },
+    { name: 'johnny@example.com', first_name: 'Johnny', last_name: 'Smith' }
+  ]
+}
+```
+
+### actionSidebar()
+
+Returns sidebar navigation data.
+
+**HTTP Method:** GET  
+**Route:** `/desk/sidebar`
+
+```javascript
+// In controller
+async actionSidebar() {
+  return { sidebarData: await CoreController.sidebarData() };
+}
+```
+
+## Rendering & Response
+
+### render(meta)
+
+Renders a view with document metadata and UI configuration.
+
+<ParamField path="meta" type="object" required>
+  Document metadata and data
+</ParamField>
+
+```javascript
+const document = await loopar.getDocument('User', 'john@example.com');
+return await this.render(await document.__meta__());
+```
+
+**Response Structure:**
+```javascript
+{
+  key: 'hash-of-route',
+  instance: 'user-form',
+  meta: {
+    title: 'User',
+    action: 'update'
+  },
+  entryPoint: 'user-form',
+  Entity: { ... },
+  data: { ... }
+}
+```
+
+### redirect(url)
+
+Redirects to a different URL.
+
+<ParamField path="url" type="string" required>
+  Relative or absolute URL to redirect to
+</ParamField>
+
+```javascript
+return this.redirect('/desk/User/list');
+// or
+return this.redirect('update?name=newuser');
+```
+
+### success(message, options)
+
+Returns a success response with notification.
+
+<ParamField path="message" type="string" required>
+  Success message
+</ParamField>
+
+<ParamField path="options" type="object">
+  Additional response data
+</ParamField>
+
+```javascript
+return this.success('Document saved successfully', {
+  name: document.name,
+  notify: {
+    type: 'success',
+    message: 'Saved!'
+  }
+});
+```
+
+**Response:**
+```javascript
+{
+  status: 200,
+  success: true,
+  message: 'Document saved successfully',
+  name: 'document-name',
+  notify: {
+    type: 'success',
+    message: 'Saved!'
+  }
+}
+```
+
+### error(message, options, status)
+
+Returns an error response.
+
+<ParamField path="message" type="string" required>
+  Error message
+</ParamField>
+
+<ParamField path="options" type="object">
+  Additional error data
+</ParamField>
+
+<ParamField path="status" type="number" default="500">
+  HTTP status code
+</ParamField>
+
+```javascript
+return this.error('Document not found', {}, 404);
+```
+
+### notFound(options)
+
+Returns a 404 not found response.
+
+<ParamField path="options" type="object">
+  Error details
+</ParamField>
+
+```javascript
+return await this.notFound({
+  code: 404,
+  title: 'Document Not Found',
+  description: 'The requested document does not exist'
+});
+```
+
+## Request Handling
+
+### sendAction(action)
+
+Dispatches request to the appropriate action handler.
+
+<ParamField path="action" type="string" required>
+  Action name (e.g., 'list', 'create', 'update')
+</ParamField>
+
+```javascript
+const result = await controller.sendAction('list');
+```
+
+**Process:**
+1. Capitalizes action name (e.g., 'list' → 'actionList')
+2. Checks if action method exists
+3. Calls `beforeAction()` hook
+4. Executes action method
+5. Returns result
+
+### beforeAction()
+
+Hook called before any action executes. Override in subclass.
+
+```javascript
+class MyController extends BaseController {
+  async beforeAction() {
+    // Custom authentication check
+    if (!this.isAuthenticated()) {
+      return this.redirect('/login');
+    }
+  }
+}
+```
+
+### hasData()
+
+Checks if request contains data (POST body or query params).
+
+```javascript
+if (this.hasData()) {
+  // Process submitted data
+  await document.save();
+} else {
+  // Show form
+  return await this.render(meta);
+}
+```
+
+## Navigation & UI
+
+### sidebarData()
+
+Static method that returns sidebar navigation structure.
+
+```javascript
+const sidebar = await BaseController.sidebarData();
+// Returns loopar.modulesGroup with app/module hierarchy
+```
+
+### clientImporter(document)
+
+Determines the client-side entry point for a document.
+
+<ParamField path="document" type="object" required>
+  Document metadata
+</ParamField>
+
+```javascript
+const entryPoint = this.clientImporter(document);
+// Returns: 'user-form', 'user-list', 'page-view', etc.
+```
+
+**Entry Points:**
+- `{entity}-form`: Create/Update actions
+- `{entity}-list`: List action
+- `{entity}-view`: View action or Page/View types
+
+### getKey(route)
+
+Generates unique hash key for route caching.
+
+```javascript
+const key = this.getKey('/desk/User/update?name=john');
+```
+
+### getInstance(route)
+
+Generates unique instance identifier for component.
+
+```javascript
+const instance = this.getInstance('/desk/User/list');
+// Returns: 'user-list'
+```
+
+## Private File Serving
+
+### servePrivateFile(file)
+
+Serves private files with access control.
+
+<ParamField path="file" type="string" required>
+  File identifier/name
+</ParamField>
+
+```javascript
+await controller.servePrivateFile('document-attachment-123');
+```
+
+## Custom Controller Example
+
+```javascript
+import { BaseController } from 'loopar';
+import { loopar } from 'loopar';
+
+class OrderController extends BaseController {
+  defaultAction = 'list';
+  hasSidebar = true;
+  
+  async beforeAction() {
+    // Custom authentication
+    if (!loopar.currentUser?.name) {
+      return this.redirect('/login');
+    }
+  }
+  
+  // Override update to add custom logic
+  async actionUpdate() {
+    const document = await loopar.getDocument(
+      this.document, 
+      this.name, 
+      this.data
+    );
+    
+    if (this.hasData()) {
+      // Custom validation
+      if (document.status === 'Submitted' && !this.canApprove()) {
+        return this.error('You do not have permission to approve orders');
+      }
+      
+      await document.save();
+      
+      // Send notification email
+      if (document.status === 'Submitted') {
+        await this.sendOrderNotification(document);
+      }
+      
+      return this.success('Order saved successfully', {
+        name: document.name
+      });
+    }
+    
+    return await this.render(await document.__meta__());
+  }
+  
+  // Custom action
+  async actionApprove() {
+    const document = await loopar.getDocument(this.document, this.name);
+    
+    if (!this.canApprove()) {
+      return this.error('Insufficient permissions', {}, 403);
+    }
+    
+    document.status = 'Approved';
+    document.approved_by = loopar.currentUser.name;
+    document.approved_at = new Date();
+    
+    await document.save();
+    
+    return this.success('Order approved successfully');
+  }
+  
+  canApprove() {
+    return loopar.currentUser?.role === 'Manager';
+  }
+  
+  async sendOrderNotification(order) {
+    // Email notification logic
+  }
+}
+
+export default OrderController;
+```
+
+## Complete Workflow Example
+
+```javascript
+import { BaseController } from 'loopar';
+
+// Extend BaseController
+class UserController extends BaseController {
+  constructor(props) {
+    super(props);
+  }
+}
+
+// Usage in routes:
+
+// GET /desk/User/list
+// → Calls actionList()
+// → Returns paginated user list
+
+// GET /desk/User/create
+// → Calls actionCreate()
+// → Returns empty user form
+
+// POST /desk/User/create with data
+// → Calls actionCreate() with this.hasData() = true
+// → Creates user, redirects to update
+
+// GET /desk/User/update?name=john@example.com
+// → Calls actionUpdate()
+// → Returns form with user data
+
+// POST /desk/User/update?name=john@example.com with data
+// → Calls actionUpdate() with this.hasData() = true
+// → Saves changes, returns success response
+
+// POST /desk/User/delete?name=john@example.com
+// → Calls actionDelete()
+// → Deletes user, redirects to list
+```
+
+## Related
+
+- [Loopar Core](/api/loopar) - Main framework class
+- [BaseDocument](/api/base-document) - Document class for data models
+- [File Manager](/api/file-manager) - File operations

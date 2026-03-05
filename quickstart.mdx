@@ -1,80 +1,462 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Build your first Loopar application with this step-by-step guide
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through creating your first Loopar application, from initial setup to building your first component.
 
-### Step 1: Set up your local environment
+## Complete the Setup Wizard
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+After installation, navigate to your application URL (e.g., `http://localhost:3000`) to complete the initial setup.
+
+<Steps>
+  <Step title="Configure Database">
+    Choose your database type and enter connection details:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    **Supported Databases:**
+    - **SQLite** - Perfect for development (no additional setup required)
+    - **MySQL** - Popular open-source database
+    - **MariaDB** - MySQL-compatible database
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    <CodeGroup>
+    ```javascript SQLite (Recommended for Dev)
+    {
+      "type": "sqlite",
+      "storage": "./database.sqlite"
+    }
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```javascript MySQL/MariaDB
+    {
+      "type": "mysql",
+      "host": "localhost",
+      "port": 3306,
+      "database": "loopar_db",
+      "username": "root",
+      "password": "your_password"
+    }
+    ```
+    </CodeGroup>
+    
+    <Note>
+      For quick start, we recommend **SQLite** as it requires no additional database server setup.
+    </Note>
+  </Step>
+  
+  <Step title="Define Project Settings">
+    Enter your project information:
+    - **Project Name**: Display name for your application
+    - **Admin Email**: Administrator email address
+    - **Admin Password**: Secure password for admin account
+    - **Site Title**: Title displayed in browser
+  </Step>
+  
+  <Step title="Complete Installation">
+    Click "Complete Setup" and wait for the wizard to:
+    - Initialize the database
+    - Create admin user
+    - Set up default modules
+    - Configure the workspace
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Understanding the CLI
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Loopar includes a powerful CLI for managing your application. All commands are available through the `loopar-cli.js` script.
 
-### Step 3: Go live
+### Basic Commands
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<CodeGroup>
+```bash Development
+# Start development server
+pnpm run dev
+# or
+yarn run dev
+```
 
-## Next steps
+```bash Production
+# Start production server
+pnpm run start
 
-Now that you have your docs running, explore these key features:
+# Stop all processes
+pnpm run stop
+
+# Restart processes
+pnpm run restart
+```
+
+```bash Monitoring
+# View logs
+pnpm run logs
+
+# List running processes
+pnpm run list
+```
+</CodeGroup>
+
+### CLI Implementation
+
+The CLI uses PM2 for process management:
+
+```javascript bin/loopar-cli.js
+const commands = {
+  dev() {
+    console.log(chalk.cyan(`Starting ${namespace}core site.`));
+    pm2Command(`node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env development`);
+  },
+  
+  start(siteName) {
+    console.log(chalk.cyan('Starting core site.'));
+    pm2Command(`node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env production`);
+  },
+  
+  stop(siteName) {
+    console.log(chalk.yellow('Stopping all sites...'));
+    pm2Command(`pm2 stop all --namespace ${namespace}`);
+  },
+  
+  restart(siteName) {
+    console.log(chalk.cyan('Restarting all sites...'));
+    pm2Command(`pm2 restart all --namespace ${namespace}`);
+  }
+};
+```
+
+## Create Your First Component
+
+Loopar includes a comprehensive component library. Let's explore how components work.
+
+### Component Structure
+
+All components are located in `packages/loopar/src/components/`. Here's how components are structured:
+
+<Steps>
+  <Step title="Basic Component Example">
+    Let's look at the Button component:
+    
+    ```jsx packages/loopar/src/components/button.jsx
+    import {Button} from "@cn/components/ui/button";
+    import {useDocument} from "@context/@/document-context";
+    import loopar from "loopar";
+
+    const buttons = {
+      primary: "primary",
+      secondary: "secondary",
+      default: "default",
+      ghost: "ghost",
+      destructive: "destructive",
+    };
+
+    export default function MetaButton(props){
+      const data = props.data || {};
+      const {docRef} = useDocument();
+
+      const handleClick = (e) => {
+        e.preventDefault();
+        
+        if (data.action && docRef) {
+          if(!docRef[data.action]) 
+            loopar.throw("Action not Defined",`Action ${data.action} not found in model`)
+          docRef[data.action]();
+        }
+      }
+
+      const getVariant = () => {
+        return buttons[data.variant] || buttons.default;
+      }
+
+      return (
+        <Button
+          {...loopar.utils.renderizableProps(props)}
+          variant={getVariant()}
+          onClick={handleClick}
+          className={props.className}
+        >
+          {data.label || "Button"}
+        </Button>
+      );
+    }
+    ```
+    
+    <Note>
+      Components use the `data` prop for configuration and `loopar.utils.renderizableProps()` for common rendering properties.
+    </Note>
+  </Step>
+  
+  <Step title="Advanced Component - Card">
+    The Card component shows how to use Droppable areas:
+    
+    ```jsx packages/loopar/src/components/card.jsx
+    import {
+      Card as CardComponent,
+      CardContent,
+      CardFooter,
+      CardHeader,
+      CardTitle,
+    } from "@cn/components/ui/card"
+    import {Droppable} from "@droppable";
+    import {cn} from "@cn/lib/utils";
+    import loopar from "loopar";
+
+    export default function Card(props) {
+      const data = props.data || {};
+
+      return (
+        <CardComponent 
+          className={cn(props.className, "transition-all hover:shadow-lg h-full")}
+        >
+          <CardHeader>
+            <CardTitle>{data.label}</CardTitle>
+            {data.description && <CardDescription>{data.description}</CardDescription>}
+          </CardHeader>
+          <Droppable
+            Component={CardContent}
+            {...props}
+          />
+          {props.footer && (
+            <CardFooter className="flex justify-between">
+              {props.footer}
+            </CardFooter>
+          )}
+        </CardComponent>
+      )
+    }
+    ```
+    
+    Key features:
+    - Uses Shadcn UI components as base
+    - `Droppable` component allows child elements in the designer
+    - Supports labels, descriptions, and footers
+    - Hover effects with Tailwind CSS
+  </Step>
+  
+  <Step title="Using Components in Your App">
+    Components are automatically loaded through the component loader:
+    
+    ```jsx packages/loopar/src/components-loader.jsx
+    // Components are dynamically imported and registered
+    const components = {
+      Button: () => import('./components/button.jsx'),
+      Card: () => import('./components/card.jsx'),
+      Input: () => import('./components/input.jsx'),
+      // ... more components
+    };
+    ```
+  </Step>
+</Steps>
+
+## Available Components
+
+Loopar includes these pre-built components:
+
+<CardGroup cols={3}>
+  <Card title="Layout" icon="layout">
+    - Container
+    - Row
+    - Col
+    - Div
+    - Card
+  </Card>
+  
+  <Card title="Form Elements" icon="square-check">
+    - Button
+    - Input
+    - Checkbox
+    - Date/DateTime
+    - Color Picker
+  </Card>
+  
+  <Card title="Display" icon="eye">
+    - Banner
+    - Carousel
+    - Dialog
+    - Divider
+    - Image
+  </Card>
+  
+  <Card title="Data" icon="table">
+    - Table
+    - List
+    - Form View
+  </Card>
+  
+  <Card title="Design" icon="palette">
+    - Designer
+    - Direct Preview
+    - Workspace
+  </Card>
+  
+  <Card title="Special" icon="sparkles">
+    - Markdown
+    - HTML
+    - Custom
+  </Card>
+</CardGroup>
+
+## Build Your First Page
+
+<Steps>
+  <Step title="Access the Workspace">
+    After logging in, navigate to the Loopar workspace:
+    ```
+    http://localhost:3000/desk
+    ```
+  </Step>
+  
+  <Step title="Create a New Document">
+    The workspace provides tools to:
+    - Create new documents/pages
+    - Design layouts visually
+    - Configure components
+    - Manage data models
+  </Step>
+  
+  <Step title="Use the Designer">
+    The visual designer (`packages/loopar/src/components/designer/`) allows you to:
+    - Drag and drop components
+    - Configure component properties
+    - Preview in real-time
+    - Save and publish
+  </Step>
+  
+  <Step title="Configure Component Properties">
+    Each component has metaFields that define configurable properties:
+    
+    ```javascript
+    MetaButton.metaFields = () => {
+      return [{
+        group: "form",
+        elements: {
+          action: {
+            element: INPUT,
+            data: {
+              description: "Define action like save, print..."
+            }
+          },
+          variant: {
+            element: SELECT,
+            data: {
+              options: Object.keys(buttons).map((button) => ({
+                option: button,
+                value: buttons[button]
+              }))
+            }
+          }
+        }
+      }];
+    }
+    ```
+  </Step>
+</Steps>
+
+## Application Context
+
+Loopar provides context for managing application state:
+
+```tsx app/App.tsx
+const App = ({ __META__ }: RootLayoutProps) => {
+  const { cookieManager } = __META__.services;
+
+  return (
+    <CookiesProvider manager={cookieManager} updater={setUpdate}>
+      <Main __META__={__META__} />
+    </CookiesProvider>
+  )
+}
+
+const Main = ({ __META__ }: RootLayoutProps) => {
+  const { components, Document } = __META__;
+  const { Workspace, View } = components;
+
+  return (
+    <WorkspaceProvider
+      __META__={__META__}
+      Documents={{
+        [Document.name]: {
+          ...__META__,
+          View,
+          active: true,
+        }
+      }}
+    >
+      <Workspace menuData={__META__.menu_data} />
+    </WorkspaceProvider>
+  );
+}
+```
+
+Key concepts:
+- **`__META__`**: Contains application metadata, services, and configuration
+- **WorkspaceProvider**: Manages document state and navigation
+- **CookiesProvider**: Handles authentication and session management
+- **Document**: Current page/view being rendered
+
+## Working with Data
+
+Loopar uses Sequelize for database operations:
+
+```javascript
+// Database configuration is in packages/db-env
+// Supports: MySQL, MariaDB, SQLite
+import { Sequelize } from '@sequelize/core';
+
+// Models are automatically loaded from your application structure
+// You can define custom models and relationships
+```
+
+## Development Workflow
+
+<Steps>
+  <Step title="Start Development Server">
+    ```bash
+    pnpm run dev
+    ```
+    
+    This starts the server with hot module reloading enabled.
+  </Step>
+  
+  <Step title="Make Changes">
+    Edit components in `packages/loopar/src/components/` or create custom components in your app directory.
+  </Step>
+  
+  <Step title="View Changes">
+    Changes are automatically reflected in the browser. Check the logs:
+    ```bash
+    pnpm run logs
+    ```
+  </Step>
+  
+  <Step title="Build for Production">
+    When ready to deploy:
+    ```bash
+    pnpm run build
+    pnpm run start
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Project Structure" icon="folder-tree" href="/project-structure">
+    Deep dive into Loopar's architecture and directory organization
+  </Card>
+  
+  <Card title="Components" icon="puzzle-piece" href="/components/overview">
+    Explore all available components and their APIs
+  </Card>
+  
+  <Card title="Database" icon="database" href="/database/overview">
+    Learn about data modeling and database operations
+  </Card>
+  
+  <Card title="CLI Commands" icon="rocket" href="/cli/overview">
+    Learn about CLI commands for deployment
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Need Help?** Visit the [Loopar documentation](https://loopar.build/Doc) or check the [GitHub repository](https://github.com/alphabit-technology/loopar-framework) for more resources.
 </Note>

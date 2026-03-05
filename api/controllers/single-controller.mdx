@@ -1,0 +1,271 @@
+---
+title: SingleController
+description: Controller for managing single-instance documents in Loopar Framework
+---
+
+## Overview
+
+The `SingleController` extends `BaseController` and is designed for managing single-instance documents - documents that can only have one instance in the system. This controller automatically redirects list actions to update actions and provides specialized rendering for single documents.
+
+## Class Definition
+
+```javascript
+import BaseController from './base-controller.js';
+import { loopar } from "loopar";
+
+export default class SingleController extends BaseController {
+  constructor(props) {
+    super(props);
+    this.action === 'list' && this.redirect('update');
+  }
+}
+```
+
+**Source:** `packages/loopar/core/controller/single-controller.js:6`
+
+## When to Use
+
+- For documents that should only have one instance system-wide (e.g., Settings, Configuration)
+- When you need to prevent creation of multiple records
+- For system-level settings or global configurations
+- When working with singleton patterns in your application
+
+## Key Features
+
+- Automatic redirection from list to update view
+- Specialized document rendering with parent menu tracking
+- Integration with web app menu structure
+- Single-instance enforcement at controller level
+
+## Constructor
+
+<ParamField path="props" type="object" required>
+  Configuration object containing controller initialization parameters including:
+  - `action`: The current action being performed
+  - `document`: The document type being controlled
+  - `data`: Request data
+  - Other inherited controller properties
+</ParamField>
+
+**Behavior:** Automatically redirects to 'update' action if 'list' action is detected.
+
+## Methods
+
+### getParent()
+
+Retrieves the parent menu item for the current document.
+
+```javascript
+async getParent()
+```
+
+**Returns:** `Promise<string>` - The parent page identifier from the Menu Item
+
+**Implementation:**
+```javascript
+async getParent(){
+  return await loopar.db.getValue('Menu Item', "page", {page: this.document});
+}
+```
+
+**Source:** `packages/loopar/core/controller/single-controller.js:13`
+
+---
+
+### sendAction(action)
+
+Handles action dispatching for the controller, checking for method existence before execution.
+
+```javascript
+async sendAction(action)
+```
+
+<ParamField path="action" type="string" required>
+  The action name to execute (e.g., 'view', 'update', 'search')
+</ParamField>
+
+**Returns:** `Promise<object>` - The result of the action execution
+
+**Behavior:**
+- Executes `beforeAction()` for authentication/authorization
+- Capitalizes action name and prepends 'action' (e.g., 'view' becomes 'actionView')
+- If method exists, executes it
+- Otherwise, delegates to `sendDocument(action)`
+
+**Source:** `packages/loopar/core/controller/single-controller.js:17`
+
+---
+
+### actionView()
+
+Handles the view action by rendering the single document.
+
+```javascript
+async actionView()
+```
+
+**Returns:** `Promise<object>` - Rendered document response
+
+**Source:** `packages/loopar/core/controller/single-controller.js:27`
+
+---
+
+### sendDocument(action)
+
+Retrieves and renders a single document with web app integration.
+
+```javascript
+async sendDocument(action = this.document)
+```
+
+<ParamField path="action" type="string" default="this.document">
+  The document or action identifier to render
+</ParamField>
+
+**Returns:** `Promise<object>` - Rendered document with metadata including:
+- `Entity`: Document entity information with name, background image, and structure
+- `activeParentMenu`: Parent menu item reference
+- `__DOCUMENT_TITLE__`: Display title from menu or document name
+
+**Implementation Details:**
+- Retrieves web app menu items
+- Matches action against menu pages or links
+- Loads the corresponding document
+- Enriches document with navigation context
+- Renders with specialized metadata
+
+**Source:** `packages/loopar/core/controller/single-controller.js:31`
+
+## Usage Examples
+
+### Creating a Single Document Controller
+
+```javascript
+import SingleController from '@loopar/core/controller/single-controller';
+
+export default class SettingsController extends SingleController {
+  constructor(props) {
+    super(props);
+  }
+  
+  // Custom method for settings
+  async actionUpdateSettings() {
+    const document = await loopar.getDocument(this.document);
+    // Custom settings logic
+    await document.save();
+    return this.success('Settings updated successfully');
+  }
+}
+```
+
+### Accessing a Single Document
+
+```javascript
+// GET /desk/Settings/view
+// Automatically loads the single Settings document
+
+// GET /desk/Settings/list
+// Automatically redirects to /desk/Settings/update
+```
+
+### Custom Action in Single Controller
+
+```javascript
+export default class SystemConfigController extends SingleController {
+  async actionReset() {
+    const document = await loopar.getDocument(this.document);
+    await document.resetToDefaults();
+    return this.success('Configuration reset to defaults');
+  }
+}
+```
+
+## Inherited Methods
+
+SingleController inherits all methods from:
+- [BaseController](/api/controllers/base-controller) - CRUD operations, list management
+- CoreController - Rendering, error handling, authentication
+- AuthController - User authentication and authorization
+
+### Key Inherited Methods
+
+- `actionUpdate()` - Update the single document
+- `render(meta)` - Render the document view
+- `success(message, options)` - Return success response
+- `error(message, options)` - Return error response
+- `redirect(url)` - Redirect to another URL
+- `beforeAction()` - Authentication and authorization checks
+
+## Properties
+
+<ResponseField name="action" type="string">
+  Current action being executed (inherited from BaseController)
+</ResponseField>
+
+<ResponseField name="document" type="string">
+  Document type name being controlled
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Request data object
+</ResponseField>
+
+<ResponseField name="defaultAction" type="string" default="list">
+  Default action (inherited from BaseController, typically redirected to 'update')
+</ResponseField>
+
+<ResponseField name="hasSidebar" type="boolean" default="true">
+  Whether to display sidebar navigation (inherited from BaseController)
+</ResponseField>
+
+## Best Practices
+
+<Note>
+  **Single Instance Pattern**: Always ensure your document entity is marked as `is_single: true` to prevent creation of multiple instances.
+</Note>
+
+<Warning>
+  The SingleController automatically redirects list actions to update. Ensure your UI doesn't expect list views for single documents.
+</Warning>
+
+### Do's
+
+- Use SingleController for system-wide settings and configurations
+- Override `sendDocument()` if you need custom rendering logic
+- Implement custom actions for specific single-document operations
+- Leverage parent menu integration for navigation context
+
+### Don'ts
+
+- Don't try to create new instances with `actionCreate()` - it will fail
+- Don't expect list views to render normally
+- Don't use for documents that need multiple instances
+- Avoid bypassing the redirect logic in constructor
+
+## Related Controllers
+
+- [BaseController](/api/controllers/base-controller) - Parent class with CRUD operations
+- [PageController](/api/controllers/page-controller) - Extends SingleController for page views
+- [FormController](/api/controllers/form-controller) - For form-specific document handling
+
+## Error Handling
+
+SingleController uses inherited error handling:
+
+```javascript
+// Returns 404 if document not found
+async actionView() {
+  const document = await loopar.getDocument(this.document);
+  // If document doesn't exist, throws error
+  return await this.render(document);
+}
+
+// Custom error handling
+async actionCustom() {
+  try {
+    // Your logic
+  } catch (error) {
+    return this.error('Operation failed', { notify: { message: error.message } });
+  }
+}
+```

@@ -1,0 +1,437 @@
+---
+title: Controllers Guide
+description: Comprehensive guide to working with controllers in Loopar Framework
+---
+
+Controllers handle HTTP requests, route actions, and manage the request-response cycle in Loopar. The framework provides several controller types for different use cases.
+
+## Controller Hierarchy
+
+Loopar controllers follow an inheritance hierarchy:
+
+```
+AuthController
+└── CoreController
+    └── BaseController
+        ├── FormController
+        ├── PageController
+        ├── SingleController
+        ├── ReportController
+        └── WorkspaceController
+```
+
+## BaseController
+
+The most common controller type for CRUD operations on documents.
+
+### Default Actions
+
+```javascript title="base-controller.js"
+import { BaseController, loopar } from "loopar";
+
+export default class MyController extends BaseController {
+  defaultAction = 'list';
+  hasSidebar = true;
+
+  // List all records
+  async actionList() {
+    const data = await loopar.session.get(this.document + '_q') || {};
+    const list = await loopar.getList(this.document, { data });
+    return await this.render(list);
+  }
+
+  // Create new record
+  async actionCreate() {
+    const document = await loopar.newDocument(this.document, this.data);
+
+    if (this.hasData()) {
+      await document.save();
+      return this.redirect('update?name=' + document.name);
+    } else {
+      return await this.render(await document.__meta__());
+    }
+  }
+
+  // Update existing record
+  async actionUpdate() {
+    const document = await loopar.getDocument(this.document, this.name, 
+      this.hasData() ? this.data : null);
+
+    if (this.hasData()) {
+      await document.save();
+      return await this.success(
+        `${document.__ENTITY__.name} ${document.name} saved successfully`,
+        { name: document.name }
+      );
+    } else {
+      return await this.render(await document.__meta__());
+    }
+  }
+
+  // Delete record
+  async actionDelete() {
+    const document = await loopar.getDocument(this.document, this.name);
+    await document.delete();
+    return this.redirect('list');
+  }
+
+  // Bulk delete
+  async actionBulkDelete() {
+    const names = JSON.parse(this.names);
+
+    for (const name of names) {
+      const document = await loopar.getDocument(this.document, name);
+      await document.delete();
+    }
+
+    return this.success(`Documents deleted successfully`);
+  }
+}
+```
+
+<Note>
+  The `hasData()` method checks if the request contains POST data, helping distinguish between GET (render form) and POST (process form) requests.
+</Note>
+
+## FormController
+
+Used for single-page forms that only support viewing.
+
+```javascript title="form-controller.js"
+import { FormController, loopar } from "loopar";
+
+export default class MyFormController extends FormController {
+  constructor(props) {
+    super(props);
+    // Automatically redirects any action to 'view'
+    this.action !== 'view' && this.redirect('view');
+  }
+
+  async actionView() {
+    const document = await loopar.getDocument(this.document, this.name);
+    return await this.render(document);
+  }
+}
+```
+
+## PageController
+
+For static pages and landing pages. Extends SingleController:
+
+```javascript title="page-controller.js"
+import { PageController } from "loopar";
+
+export default class MyPageController extends PageController {
+  client = 'page';
+  
+  constructor(props) {
+    super(props);
+  }
+}
+```
+
+## SingleController
+
+For singleton documents that exist only once in the system:
+
+```javascript title="single-controller.js"
+import { SingleController, loopar } from "loopar";
+
+export default class SettingsController extends SingleController {
+  constructor(props) {
+    super(props);
+    // Redirects 'list' action to 'update'
+    this.action === 'list' && this.redirect('update');
+  }
+
+  async actionView() {
+    return await this.sendDocument();
+  }
+  
+  async sendDocument(action = this.document) {
+    const webApp = loopar.webApp || { menu_items: [] };
+    const menu = webApp.menu_items.find(item => 
+      [item.page, item.link].includes(action)
+    );
+
+    const document = await loopar.getDocument(menu?.page || action);
+
+    return await this.render({
+      Entity: {
+        name: document.__ENTITY__?.name,
+        background_image: document.__ENTITY__?.background_image,
+        doc_structure: document.__ENTITY__?.doc_structure || "[{}]",
+      },
+      activeParentMenu: await this.getParent(),
+      __DOCUMENT_TITLE__: menu?.link || this.document,
+    });
+  }
+}
+```
+
+## ReportController
+
+For reporting and analytics views:
+
+```javascript title="report-controller.js"
+import { ReportController, loopar } from "loopar";
+
+export default class SalesReportController extends ReportController {
+  constructor(props) {
+    super(props);
+    this.action !== 'view' && this.redirect('view');
+  }
+
+  async actionView() {
+    const document = await loopar.getDocument(this.document, this.name);
+    return await this.render(document);
+  }
+}
+```
+
+## Custom Actions
+
+Add custom actions by prefixing methods with `action`:
+
+```javascript title="system-controller.js"
+import { BaseController, loopar, fileManage } from "loopar";
+
+export default class SystemController extends BaseController {
+  client = "form";
+  publicActions = ['connect', 'install', 'update', 'reinstall'];
+
+  async actionConnect() {
+    const model = await loopar.newDocument("Connector", this.data);
+
+    if (this.hasData()) {
+      if (await model.connect()) {
+        return this.redirect('/desk');
+      }
+    } else {
+      const response = await model.__meta__();
+      response.data = {
+        dialect: "mysql",
+        host: "localhost",
+        port: "3306",
+        user: "root",
+        password: "root",
+      };
+      return await this.render(response);
+    }
+  }
+
+  async actionInstall(reinstall = false) {
+    if (this.hasData()) {
+      const model = await this.getInstallerModel();
+      model.app_name ??= this.getAppName();
+
+      if (loopar.__installed__ && await loopar.appStatus(model.app_name) === 'installed' && !reinstall) {
+        loopar.throw("App already installed please refresh page");
+      }
+
+      await model.install(reinstall);
+      return new Promise(resolve => {
+        setTimeout(() => {
+          resolve(this.redirect('view'));
+        }, 1000);
+      });  
+    } else {
+      const model = await loopar.newDocument("Installer", this.data);
+      const response = await model.__meta__();
+      return await this.render(response);
+    }
+  }
+
+  async actionPull() {
+    const model = await this.getInstallerModel();
+    Object.assign(model, { app_name: this.data.app_name });
+
+    if (await model.pull()) {
+      return await this.render({ success: true, data: 'App updated successfully' });
+    }
+  }
+}
+```
+
+<Warning>
+  Custom actions must be prefixed with `action` (e.g., `actionSendEmail`). Actions without this prefix will not be routed.
+</Warning>
+
+## CoreController Features
+
+### Sending Actions
+
+```javascript
+async sendAction(action) {
+  action = `action${loopar.utils.Capitalize(action)}`;
+  
+  if (typeof this[action] !== 'function') {
+    return await this.notFound({
+      code: 404,
+      title: "Action not found",
+      description: `The action ${action} not found.`
+    });
+  }
+
+  await this.beforeAction();
+  return await this[action]();
+}
+```
+
+### Response Helpers
+
+```javascript
+// Success response
+await this.success('Operation completed', { name: 'ITEM-001' });
+
+// Error response
+await this.error('Operation failed', { details: 'Invalid data' }, 400);
+
+// Redirect
+return this.redirect('/desk/Customer/list');
+
+// Render view
+return await this.render(document);
+```
+
+### Not Found Handling
+
+```javascript
+async actionCustom() {
+  const item = await loopar.db.getValue('Item', 'name', this.itemId);
+  
+  if (!item) {
+    return await this.notFound({
+      code: 404,
+      title: "Item not found",
+      description: "The requested item does not exist"
+    });
+  }
+  
+  // Process item...
+}
+```
+
+## Request Context
+
+Controllers have access to request context:
+
+```javascript
+export default class MyController extends BaseController {
+  async actionProcess() {
+    // Request data
+    const data = this.data;           // POST/GET data
+    const method = this.method;       // HTTP method
+    const action = this.action;       // Current action name
+    const document = this.document;   // Document name
+    const name = this.name;           // Record name/ID
+    
+    // Check if has data
+    if (this.hasData()) {
+      // Process POST request
+    } else {
+      // Render form
+    }
+    
+    // Workspace context
+    const workspace = this.req.__WORKSPACE_NAME__; // 'desk', 'web', 'auth'
+  }
+}
+```
+
+## Client-Side Integration
+
+Specify the client-side entry point:
+
+```javascript
+export default class MyController extends BaseController {
+  client = 'form';  // Uses form client
+  // client = 'list';  // Uses list client
+  // client = 'page';  // Uses page client
+  // client = 'view';  // Uses view client
+}
+```
+
+## Public Actions
+
+Make actions accessible without authentication:
+
+```javascript
+export default class AuthController extends BaseController {
+  publicActions = ['login', 'register', 'forgot-password'];
+  
+  async actionLogin() {
+    // Publicly accessible
+  }
+}
+```
+
+See the authentication system at `packages/loopar/core/controller/auth-controller.js:4`.
+
+## Preloaded Mode
+
+Optimize responses for AJAX requests:
+
+```javascript
+async actionList() {
+  const list = await loopar.getList(this.document, { data });
+  
+  if (this.preloaded == 'true') {
+    return {
+      instance: this.getInstance(),
+      rows: list.rows,
+      pagination: list.pagination
+    };
+  }
+  
+  return await this.render(list);
+}
+```
+
+## Best Practices
+
+<Steps>
+
+### Choose the Right Controller Type
+
+- **BaseController**: Full CRUD operations
+- **FormController**: View-only forms
+- **PageController**: Static pages
+- **SingleController**: Singleton documents
+- **ReportController**: Reports and analytics
+
+### Handle Errors Gracefully
+
+Use `loopar.throw()` for user-facing errors:
+
+```javascript
+if (!validData) {
+  loopar.throw({
+    message: "Invalid data provided",
+    code: 400
+  });
+}
+```
+
+### Use Lifecycle Hooks
+
+Implement `beforeAction()` for common checks:
+
+```javascript
+async beforeAction() {
+  await super.beforeAction();
+  
+  // Custom authorization
+  if (!this.canAccess()) {
+    return this.notFound('Access denied');
+  }
+}
+```
+
+</Steps>
+
+## Next Steps
+
+- [Authentication](/guides/authentication) - Secure your controllers
+- [Creating Modules](/guides/creating-modules) - Build complete modules
+- [File Management](/guides/file-management) - Handle file uploads

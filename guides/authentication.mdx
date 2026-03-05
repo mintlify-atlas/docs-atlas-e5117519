@@ -1,0 +1,481 @@
+---
+title: Authentication
+description: Learn how authentication and session management work in Loopar Framework
+---
+
+Loopar provides a robust JWT-based authentication system with cookie management, automatic token refresh, and multi-tenant support.
+
+## Authentication Architecture
+
+The authentication system consists of two main components:
+
+1. **Auth Class** (`packages/loopar/core/auth.js`) - Handles JWT tokens and session lifecycle
+2. **AuthController** (`packages/loopar/core/controller/auth-controller.js`) - Controls access to actions
+
+## Auth Class
+
+### Initialization
+
+The Auth class is initialized per tenant:
+
+```javascript title="auth.js"
+import jwt from 'jsonwebtoken';
+import { loopar } from './loopar.js';
+
+const getJWTSecret = () => loopar.jwtSecret;
+const REFRESH_THRESHOLD = 1800; // 30 minutes in seconds
+
+export default class Auth {
+  constructor(tenantId, getUser, disabledUser) {
+    this.tenantId = tenantId;
+    this.tokenName = `loopar_token_${tenantId}`;
+    this.loggedCookieName = `logged_${tenantId}`;
+    this.getUser = getUser;
+    this.disabledUser = disabledUser;
+  }
+}
+```
+
+### User Login
+
+Create and store JWT tokens:
+
+```javascript
+login(user) {
+  const payload = {
+    name: user.name,
+    email: user.email,
+    avatar: user.name.substring(0, 1).toUpperCase(),
+    profile_picture: user.profile_picture,
+    tenant: this.tenantId
+  };
+
+  const token = jwt.sign(payload, getJWTSecret(), { expiresIn: '1d' });
+  
+  loopar.cookie.set(this.tokenName, token, { httpOnly: true, path: '/' });
+  loopar.cookie.set(this.loggedCookieName, '1', { httpOnly: false, path: '/' });
+
+  return payload;
+}
+```
+
+<Note>
+  The token cookie is `httpOnly` for security, while the logged cookie is accessible to JavaScript for client-side checks.
+</Note>
+
+### Authenticate User
+
+Verify JWT tokens:
+
+```javascript
+authUser() {
+  try {
+    const token = loopar.cookie.get(this.tokenName);
+    if (!token) return null;
+    
+    return jwt.verify(token, getJWTSecret());
+  } catch (error) {
+    console.error(['[Auth.authUser] Error:', error.message]);
+    return null;
+  }
+}
+```
+
+### Token Refresh
+
+Automatically refresh tokens before expiration:
+
+```javascript
+async award() {
+  const token = loopar.cookie.get(this.tokenName);
+  
+  if (!token) return this.killSession();
+
+  try {
+    const userData = jwt.verify(token, getJWTSecret(), { ignoreExpiration: true });
+
+    if (!userData) return this.killSession();
+
+    // Check if user is disabled
+    if (await this.disabledUser?.(userData?.name)) {
+      return this.killSession();
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const exp = userData.exp || 0;
+
+    // Refresh token if within threshold (30 minutes)
+    if (exp - now < REFRESH_THRESHOLD) {
+      const payload = {
+        name: userData.name,
+        email: userData.email,
+        avatar: userData.avatar,
+        profile_picture: userData.profile_picture,
+        tenant: this.tenantId
+      };
+
+      const newToken = jwt.sign(payload, getJWTSecret(), { expiresIn: '1d' });
+      await loopar.cookie.set(this.tokenName, newToken, { httpOnly: true, path: '/' });
+      await loopar.cookie.set(this.loggedCookieName, '1', { httpOnly: false, path: '/' });
+      
+      return payload;
+    }
+
+    return {
+      name: userData.name,
+      email: userData.email,
+      avatar: userData.avatar,
+      profile_picture: userData.profile_picture,
+      tenant: userData.tenant || this.tenantId,
+      exp: userData.exp,
+      iat: userData.iat
+    };
+  } catch (error) {
+    return this.killSession();
+  }
+}
+```
+
+<Warning>
+  The `award()` method should be called on each request to ensure tokens are refreshed and users remain authenticated.
+</Warning>
+
+### Logout and Session Cleanup
+
+```javascript
+async logout() {
+  loopar.cookie.remove(this.loggedCookieName);
+  return this.killSession();
+}
+
+async killSession(res) {
+  const optsExpire = { httpOnly: true, path: '/', expires: new Date(0) };
+
+  try {
+    if (loopar.cookie && typeof loopar.cookie.remove === 'function') {
+      await loopar.cookie.remove(this.tokenName).catch(() => {});
+      await loopar.cookie.remove(this.loggedCookieName).catch(() => {});
+    }
+  } catch (e) {}
+
+  try {
+    if (loopar.cookie && typeof loopar.cookie.set === 'function') {
+      await loopar.cookie.set(this.tokenName, '', optsExpire).catch(() => {});
+      await loopar.cookie.set(this.loggedCookieName, '', optsExpire).catch(() => {});
+      if (res) {
+        await loopar.cookie.set(res, this.tokenName, '', optsExpire).catch(() => {});
+        await loopar.cookie.set(res, this.loggedCookieName, '', optsExpire).catch(() => {});
+      }
+    }
+  } catch (e) {}
+
+  try {
+    if (res && typeof res.clearCookie === 'function') {
+      res.clearCookie(this.tokenName, { path: '/' });
+      res.clearCookie(this.loggedCookieName, { path: '/' });
+    }
+  } catch (e) {}
+}
+```
+
+## AuthController
+
+All controllers inherit from AuthController, which manages access control.
+
+### Authentication Check
+
+```javascript title="auth-controller.js"
+export default class AuthController {
+  loginActions = ['login', 'register', 'recovery_user', 'recovery_password'];
+
+  async isAuthenticated() {
+    const action = this.action;
+    const workspace = this.req.__WORKSPACE_NAME__;
+  
+    // Allow public actions
+    if (this.isPublicAction) return true;
+  
+    const resolve = (message, url) => {
+      return loopar.throw(message, this.method != AJAX && url || "/auth/login");
+    }
+  
+    // Check if action is enabled
+    if (this.actionsEnabled && !this.actionsEnabled.includes(action)) {
+      return resolve('Not permitted');
+    }
+  
+    // Public workspaces
+    if (workspace == "web") return true;
+    if (workspace == "loopar") return true;
+  
+    // Verify user session
+    const user = await loopar.auth.award();
+  
+    if (user) {
+      if (workspace == "auth") {
+        if (action == "logout") return true;
+        return resolve('You are already logged in, refresh this page', "/desk/Desk/view");
+      }
+  
+      if (user.name !== 'Administrator' && user.disabled) {
+        resolve('Not permitted');
+      }
+  
+      return true;
+    } else {
+      if (workspace == "desk") {
+        return resolve('You must be logged in to access this page', "/auth/login");
+      }
+      
+      if (workspace == "auth" && this.isLoginAction) return true;
+  
+      resolve('You must be logged in to access this page');
+    }
+  }
+
+  async beforeAction() {
+    return (await this.isAuthenticated() && await this.isAuthorized());
+  }
+}
+```
+
+### Making Actions Public
+
+Define public actions in your controller:
+
+```javascript
+import { BaseController } from "loopar";
+
+export default class MyController extends BaseController {
+  publicActions = ['register', 'verify-email', 'reset-password'];
+
+  async actionRegister() {
+    // Publicly accessible registration
+  }
+
+  async actionVerifyEmail() {
+    // Publicly accessible email verification
+  }
+
+  async actionResetPassword() {
+    // Publicly accessible password reset
+  }
+}
+```
+
+## Workspaces
+
+Loopar organizes routes into workspaces:
+
+- **desk**: Admin/authenticated area (requires login)
+- **web**: Public website (no authentication)
+- **auth**: Authentication pages (login, register)
+- **loopar**: System routes
+
+```javascript
+const workspace = this.req.__WORKSPACE_NAME__;
+
+if (workspace === 'desk') {
+  // User must be authenticated
+} else if (workspace === 'web') {
+  // Public access
+} else if (workspace === 'auth') {
+  // Login/register pages
+}
+```
+
+## Multi-Tenant Support
+
+Authentication is tenant-aware:
+
+```javascript
+validateTenant(userData) {
+  if (userData.tenant && userData.tenant !== this.tenantId) {
+    console.warn(
+      `[Auth] Token tenant mismatch: expected ${this.tenantId}, got ${userData.tenant}`
+    );
+    return false;
+  }
+  return true;
+}
+```
+
+## Implementing Custom Authentication
+
+<Steps>
+
+### Step 1: Create Login Action
+
+```javascript
+import { BaseController, loopar } from "loopar";
+
+export default class AuthController extends BaseController {
+  publicActions = ['login'];
+
+  async actionLogin() {
+    if (this.hasData()) {
+      const { email, password } = this.data;
+      
+      // Validate credentials
+      const user = await loopar.db.getDoc('User', { email });
+      
+      if (!user) {
+        return this.error('Invalid credentials');
+      }
+      
+      // Verify password (implement your hashing)
+      const isValid = await this.verifyPassword(password, user.password);
+      
+      if (!isValid) {
+        return this.error('Invalid credentials');
+      }
+      
+      // Create session
+      loopar.auth.login(user);
+      
+      return this.redirect('/desk');
+    }
+    
+    // Render login form
+    return await this.render({ /* form data */ });
+  }
+}
+```
+
+### Step 2: Implement Logout
+
+```javascript
+async actionLogout() {
+  await loopar.auth.logout();
+  return this.redirect('/auth/login');
+}
+```
+
+### Step 3: Protect Routes
+
+```javascript
+export default class ProtectedController extends BaseController {
+  async beforeAction() {
+    await super.beforeAction();
+    
+    // Additional checks
+    const user = await loopar.auth.authUser();
+    
+    if (!user || !this.hasPermission(user)) {
+      return this.notFound('Access denied');
+    }
+  }
+  
+  hasPermission(user) {
+    // Custom permission logic
+    return user.role === 'admin';
+  }
+}
+```
+
+</Steps>
+
+## Session Management
+
+Access session data in controllers:
+
+```javascript
+import { loopar } from "loopar";
+
+// Store session data
+await loopar.session.set('cart', { items: [] });
+
+// Retrieve session data
+const cart = await loopar.session.get('cart');
+
+// Remove session data
+await loopar.session.remove('cart');
+```
+
+## Security Best Practices
+
+<Steps>
+
+### Use HttpOnly Cookies
+
+Always set `httpOnly: true` for authentication tokens:
+
+```javascript
+loopar.cookie.set(tokenName, token, { httpOnly: true, path: '/' });
+```
+
+### Implement Token Refresh
+
+Refresh tokens before expiration to maintain sessions:
+
+```javascript
+const REFRESH_THRESHOLD = 1800; // 30 minutes
+
+if (exp - now < REFRESH_THRESHOLD) {
+  // Issue new token
+}
+```
+
+### Validate Tenant Context
+
+Always verify the tenant matches:
+
+```javascript
+if (userData.tenant !== this.tenantId) {
+  return this.killSession();
+}
+```
+
+### Check User Status
+
+Verify users aren't disabled:
+
+```javascript
+if (await this.disabledUser?.(userData?.name)) {
+  return this.killSession();
+}
+```
+
+</Steps>
+
+## Getting Current User
+
+Access the current user in your code:
+
+```javascript
+export default class MyController extends BaseController {
+  async actionProcess() {
+    // Get current user
+    const user = await loopar.auth.authUser();
+    
+    if (user) {
+      console.log(`User: ${user.name} (${user.email})`);
+      console.log(`Avatar: ${user.avatar}`);
+      console.log(`Tenant: ${user.tenant}`);
+    }
+  }
+}
+```
+
+## Error Handling
+
+Handle authentication errors gracefully:
+
+```javascript
+try {
+  const user = await loopar.auth.authUser();
+  if (!user) {
+    return this.redirect('/auth/login');
+  }
+} catch (error) {
+  console.error('Authentication error:', error);
+  await loopar.auth.killSession();
+  return this.redirect('/auth/login');
+}
+```
+
+## Next Steps
+
+- [Controllers Guide](/guides/controllers-guide) - Build controllers with authentication
+- [Creating Modules](/guides/creating-modules) - Create authenticated modules
+- [File Management](/guides/file-management) - Handle file uploads securely

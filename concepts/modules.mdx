@@ -1,0 +1,641 @@
+---
+title: Modules
+description: Understanding Loopar's module and app system for building extensible, installable applications
+---
+
+## Overview
+
+Loopar's module system provides a way to organize and extend functionality through installable applications. Modules group related documents, controllers, and components into cohesive units that can be independently developed, installed, and managed.
+
+## Module Structure
+
+A module organizes functionality within an app:
+
+```
+apps/
+└── your-app/
+    ├── modules/
+    │   └── your-module/
+    │       ├── forms/          # Form documents
+    │       │   └── User/
+    │       │       ├── user.json
+    │       │       └── UserController.js
+    │       ├── pages/          # Page documents
+    │       │   └── Home/
+    │       │       ├── home.json
+    │       │       └── HomeController.js
+    │       └── controllers/    # Shared controllers
+    └── your-app.app            # App configuration
+```
+
+## Apps
+
+Apps are the top-level organizational unit in Loopar:
+
+<CardGroup cols={2}>
+  <Card title="Core App" icon="package">
+    Framework's built-in system modules
+  </Card>
+  <Card title="Custom Apps" icon="puzzle">
+    Your business logic and extensions
+  </Card>
+</CardGroup>
+
+### App Configuration
+
+Apps are defined in the database as documents:
+
+```javascript
+const app = {
+  name: "My App",
+  description: "Custom business application",
+  version: "1.0.0",
+  repository: "https://github.com/user/my-app.git",
+  author: "Your Name",
+  license: "MIT"
+}
+```
+
+### Core Apps Structure
+
+```
+packages/loopar/apps/core/
+└── modules/
+    └── system/
+        ├── forms/
+        │   ├── User/
+        │   ├── Module/
+        │   └── Entity/
+        ├── pages/
+        │   └── Login/
+        └── controllers/
+```
+
+## Module System
+
+Modules are organizational units within apps that group related functionality:
+
+### Creating a Module
+
+1. **Define the Module Document**
+
+```javascript
+// Module metadata stored in database
+{
+  name: "CRM",
+  description: "Customer Relationship Management",
+  app_name: "My App",
+  module_group: "Business",
+  icon: "Users",
+  in_sidebar: 1
+}
+```
+
+2. **Create Module Directory**
+
+```bash
+apps/my-app/modules/crm/
+├── forms/
+│   ├── Customer/
+│   │   ├── customer.json
+│   │   └── CustomerController.js
+│   └── Lead/
+│       ├── lead.json
+│       └── LeadController.js
+└── pages/
+    └── Dashboard/
+        ├── dashboard.json
+        └── DashboardController.js
+```
+
+## Module Groups
+
+Module groups organize modules in the sidebar:
+
+```javascript
+// Module Group configuration
+{
+  name: "Business",
+  description: "Business management modules",
+  in_sidebar: 1,
+  icon: "Briefcase"
+}
+```
+
+### Building Module Navigation
+
+The framework automatically builds navigation:
+
+```javascript packages/loopar/core/loopar/builder.js
+async build() {
+  const writeModules = async (data) => {
+    this.db.pagination = null;
+    const groupList = await this.db.getList('Module Group', 
+      ['name', 'description'], 
+      { in_sidebar: 1 }
+    );
+
+    for (const g of groupList) {
+      const modulesGroup = { 
+        name: g.name, 
+        description: g.description, 
+        modules: [] 
+      };
+
+      const moduleList = await this.db.getList(
+        'Module',
+        ['name', 'icon', 'description', 'module_group'],
+        { module_group: g.name, in_sidebar: 1 }
+      );
+
+      for (const m of moduleList) {
+        const module = { 
+          link: m.name, 
+          icon: m.icon, 
+          description: m.description, 
+          routes: [] 
+        };
+
+        const routeList = await this.db.getList(
+          "Entity", 
+          ['name', 'is_single'], 
+          { module: m.name }
+        );
+
+        module.routes = routeList.map(route => {
+          return { 
+            link: route.is_single ? 'update' : route.name, 
+            description: route.name 
+          }
+        });
+
+        modulesGroup.modules.push(module);
+      }
+
+      data.modulesGroup.push(modulesGroup);
+    }
+
+    data.initializedModules = true;
+    this.modulesGroup = data.modulesGroup;
+
+    await writeFile(data);
+  }
+}
+```
+
+## Installing Apps
+
+Loopar supports installing apps from Git repositories:
+
+### Installation Process
+
+<Steps>
+  <Step title="Clone Repository">
+    ```javascript
+    await loopar.git().clone(repository, appPath);
+    ```
+  </Step>
+  
+  <Step title="Register App">
+    ```javascript
+    await loopar.setApp({ [appName]: { path: appPath } });
+    ```
+  </Step>
+  
+  <Step title="Install Modules">
+    Modules are automatically discovered and registered
+  </Step>
+  
+  <Step title="Build References">
+    ```javascript
+    await loopar.buildRefs();
+    ```
+  </Step>
+</Steps>
+
+### App Management Methods
+
+```javascript packages/loopar/core/loopar.js
+get installedApps() {
+  this.__INSTALLED_APPS__ ??= fileManage.getConfigFile("installed-apps");
+  return this.__INSTALLED_APPS__
+}
+
+async setApp(app) {
+  await fileManage.setConfigFile('installed-apps', {
+    ...this.installedApps, 
+    ...app
+  });
+  this.__INSTALLED_APPS__ = fileManage.getConfigFile("installed-apps");
+}
+
+async unsetApp(app) {
+  const installedApps = this.installedApps;
+  delete installedApps[app];
+  await fileManage.setConfigFile('installed-apps', installedApps);
+}
+
+validateGitRepository(appName, repository) {
+  if (!this.gitRepositoryIsValid(repository)) {
+    this.throw(`The app ${appName} does not have a valid git repository`);
+  }
+}
+
+git(app) {
+  simpleGit().clean(CleanOptions.FORCE);
+  return simpleGit(this.gitAppOptions(app));
+}
+```
+
+## Document Organization
+
+Modules contain different types of documents:
+
+### Forms
+
+Data entry and management interfaces:
+
+```javascript
+// apps/my-app/modules/crm/forms/Customer/customer.json
+{
+  "name": "Customer",
+  "module": "CRM",
+  "type": "Form",
+  "is_single": 0,
+  "doc_structure": [
+    {
+      "element": "row",
+      "elements": [
+        {
+          "element": "col",
+          "elements": [
+            {
+              "element": "input",
+              "data": {
+                "name": "customer_name",
+                "label": "Customer Name",
+                "required": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Pages
+
+Public-facing or custom views:
+
+```javascript
+// apps/my-app/modules/crm/pages/Dashboard/dashboard.json
+{
+  "name": "CRM Dashboard",
+  "module": "CRM",
+  "type": "Page",
+  "is_single": 1,
+  "doc_structure": [
+    {
+      "element": "section",
+      "elements": [
+        {
+          "element": "title",
+          "data": {
+            "text": "CRM Dashboard"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Controllers
+
+Business logic for documents:
+
+```javascript
+// apps/my-app/modules/crm/forms/Customer/CustomerController.js
+import BaseController from '@loopar/core/controller/base-controller.js';
+
+export default class CustomerController extends BaseController {
+  constructor(props) {
+    super(props);
+  }
+
+  async actionUpdate(document) {
+    document ??= await loopar.getDocument(this.document, this.name, this.data);
+
+    if (this.hasData()) {
+      // Custom business logic
+      await this.updateCustomerStats(document);
+      await document.save();
+      
+      return await this.success('Customer saved successfully');
+    }
+
+    return await this.render(await document.__meta__());
+  }
+
+  async actionSendEmail() {
+    const customer = await loopar.getDocument('Customer', this.name);
+    // Email logic
+    return this.success('Email sent');
+  }
+
+  async updateCustomerStats(customer) {
+    // Update customer statistics
+  }
+}
+```
+
+## Building References
+
+The framework builds a reference registry for all documents:
+
+```javascript packages/loopar/core/loopar/builder.js
+async buildRefs() {
+  let types = {};
+  const docs = this.getEntities();
+
+  const getEntityFields = (fields) => {
+    const getFields = fields => fields.reduce(
+      (acc, field) => acc.concat(field, ...getFields(field.elements || [])), 
+      []
+    );
+
+    return getFields(fields).filter(field => {
+      const def = elementsDict[field.element]?.def || {};
+      return def.isWritable && !!field.data.name
+    }).map(field => field.data.name)
+  }
+
+  const refs = Object.values(docs).reduce((acc, doc) => {
+    if (doc.__document_status__ == "Deleted") return acc;
+    
+    const isBuilder = (doc.build || ['Builder', 'Entity'].includes(doc.name)) ? 1 : 0;
+    const isChild = doc.is_child ? 1 : 0;
+    const isSingle = this.entityIsSingle(doc);
+    const fields = typeof doc.doc_structure == "object" 
+      ? doc.doc_structure 
+      : JSON.parse(doc.doc_structure || "[]");
+    
+    if (isBuilder) {
+      types[doc.name] = {
+        id: parseInt(doc.id) || 0,
+        __ROOT__: doc.entityRoot,
+        __NAME__: doc.name,
+        __ENTITY__: doc.__ENTITY__ || "Entity",
+        __BUILD__: doc.build || doc.name,
+        __APP__: doc.__APP__,
+        __MODULE__: doc.__MODULE__,
+        __FIELDS__: getEntityFields(fields)
+      }
+    }
+
+    acc[doc.name] = {
+      id: parseInt(doc.id) || 0,
+      __NAME__: doc.name,
+      __APP__: doc.__APP__,
+      __ENTITY__: doc.__ENTITY__ || "Entity",
+      __ROOT__: doc.entityRoot,
+      is_single: isSingle,
+      is_builder: isBuilder,
+      is_child: isChild,
+      __MODULE__: doc.__MODULE__,
+      __FIELDS__: getEntityFields(fields)
+    }
+
+    return acc;
+  }, {});
+
+  await fileManage.setConfigFile('refs', { types, refs }, "config");
+
+  this.__REFS__ = refs;
+  this.__TYPES__ = types;
+}
+```
+
+## Module Context
+
+Documents automatically determine their module and app:
+
+```javascript packages/loopar/core/document/core-document.js
+async setApp() {
+  const __REF__ = this.__ENTITY__.__REF__;
+
+  if (loopar.installing) {
+    this.__APP__ = loopar.installingApp;
+    return;
+  }
+
+  if (this.__ENTITY__.name === "App") {
+    // If is an Entity type App, the app name is the same as the document name
+    this.__APP__ = this.name;
+  } else if (this.is_builder) {
+    // If is a Entity type Entity, the app name is the same as the module name
+    if (this.name === "Entity") {
+      this.__APP__ = "loopar";
+    } else {
+      this.__APP__ ??= await loopar.db.getValue("Module", "app_name", this.module);
+    }
+  } else if (this.__ENTITY__.name === "Module") {
+    this.__APP__ = this.app_name;
+  } else {
+    if (__REF__?.__APP__) {
+      this.__APP__ = __REF__.__APP__;
+    } else {
+      this.__APP__ ??= await loopar.db.getValue(
+        "Module", 
+        "app_name", 
+        this.__ENTITY__.module
+      );
+    }
+  }
+}
+```
+
+## Multi-App Support
+
+Loopar supports running multiple apps simultaneously:
+
+### App Isolation
+
+- Each app has its own directory in `apps/`
+- Modules are scoped to their parent app
+- Documents reference their source app
+- File uploads are organized by app
+
+### Cross-App References
+
+Documents from different apps can reference each other:
+
+```javascript
+// Select field linking to another app's document
+{
+  element: "select",
+  data: {
+    name: "user",
+    label: "User",
+    options: "User"  // References core User document
+  }
+}
+```
+
+## Asset Management
+
+Apps can have their own public assets:
+
+```javascript packages/loopar/core/server/server.js
+async exposeClientAppFiles(appName) {
+  if (loopar.__installed__) {
+    for (const app of Object.keys(loopar.installedApps)) {
+      const appPath = loopar.makePath(
+        loopar.pathRoot, 
+        "apps", 
+        app, 
+        this.uploadPath, 
+        "public"
+      );
+
+      console.log("Exposing public directory for: " + app)
+      server.use("/assets/public", serveStatic(appPath));
+      server.use("/assets/public/images", serveStatic(appPath));
+    }
+  }
+}
+```
+
+## Module Development Workflow
+
+<Steps>
+  <Step title="Create Module">
+    Define module in database with name, app, and group
+  </Step>
+  
+  <Step title="Create Documents">
+    Add forms, pages, or other document types to module
+  </Step>
+  
+  <Step title="Develop Controllers">
+    Implement business logic in controller classes
+  </Step>
+  
+  <Step title="Test Locally">
+    Test module functionality in development environment
+  </Step>
+  
+  <Step title="Build & Deploy">
+    Framework automatically rebuilds references and navigation
+  </Step>
+</Steps>
+
+## Example: Creating a Complete Module
+
+### 1. Define Module
+
+```javascript
+// Create via Loopar interface or direct database insert
+const module = await loopar.newDocument('Module', {
+  name: 'Inventory',
+  description: 'Inventory management system',
+  app_name: 'My App',
+  module_group: 'Business',
+  icon: 'Package',
+  in_sidebar: 1
+});
+await module.save();
+```
+
+### 2. Create Entities
+
+```javascript
+// Product entity
+const product = await loopar.newDocument('Entity', {
+  name: 'Product',
+  module: 'Inventory',
+  type: 'Form',
+  is_single: 0,
+  doc_structure: JSON.stringify([
+    {
+      element: 'row',
+      elements: [
+        {
+          element: 'col',
+          elements: [
+            { element: 'input', data: { name: 'product_name', label: 'Product Name', required: true } },
+            { element: 'input', data: { name: 'sku', label: 'SKU' } },
+            { element: 'input', data: { name: 'price', label: 'Price', format: 'currency' } }
+          ]
+        }
+      ]
+    }
+  ])
+});
+await product.save();
+```
+
+### 3. Create Controller
+
+```javascript
+// apps/my-app/modules/inventory/forms/Product/ProductController.js
+import BaseController from '@loopar/core/controller/base-controller.js';
+
+export default class ProductController extends BaseController {
+  async actionUpdate(document) {
+    document ??= await loopar.getDocument(this.document, this.name, this.data);
+
+    if (this.hasData()) {
+      await this.validateStock(document);
+      await document.save();
+      return await this.success('Product saved');
+    }
+
+    return await this.render(await document.__meta__());
+  }
+
+  async validateStock(product) {
+    // Custom validation logic
+  }
+}
+```
+
+### 4. Rebuild
+
+```javascript
+await loopar.build();
+await loopar.buildRefs();
+```
+
+## Best Practices
+
+<Warning>
+  **Module Design**
+  
+  - Keep modules focused on single responsibility
+  - Use clear, descriptive module names
+  - Document dependencies between modules
+  - Version your apps properly
+</Warning>
+
+<Tip>
+  **Development Tips**
+  
+  - Use Git for app version control
+  - Test modules in isolation
+  - Follow naming conventions
+  - Document custom controller methods
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Documents" icon="database" href="/concepts/documents">
+    Learn about creating documents in modules
+  </Card>
+  <Card title="Controllers" icon="code" href="/concepts/controllers">
+    Implement module controllers
+  </Card>
+</CardGroup>

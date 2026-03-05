@@ -1,0 +1,183 @@
+---
+title: Dev Command
+description: Start your Loopar application in development mode with hot module replacement
+---
+
+The `dev` command starts your Loopar application in development mode with hot module replacement (HMR) enabled, making it ideal for local development.
+
+## Usage
+
+```bash
+loopar dev
+```
+
+<Note>
+  The dev command does not accept a site name parameter - it always starts the core development site.
+</Note>
+
+## What It Does
+
+When you run `loopar dev`, the following sequence occurs:
+
+1. **Ensures Dev Site Exists** - Runs `ensure-site.js` to create the dev site if it doesn't exist
+2. **Starts PM2 Process** - Launches the application using PM2 with the ecosystem configuration
+3. **Displays Status** - Shows the status table with site information
+
+### Source Code
+
+Here's how the dev command is implemented:
+
+```javascript bin/loopar-cli.js
+dev() {
+  console.log(chalk.cyan(`Starting ${namespace}core site. `));
+  pm2Command(
+    `node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env development`
+  );
+}
+```
+
+## Automatic Site Creation
+
+If the `sites/dev` directory doesn't exist, it will be automatically created with the following structure:
+
+```
+sites/dev/
+├── .env
+├── config/
+├── sessions/
+└── public/
+    └── uploads/
+```
+
+### Default Configuration
+
+The auto-created `.env` file contains:
+
+```bash sites/dev/.env
+PORT=3000
+NAME=dev
+TENANT_ID=dev
+NODE_ENV=development
+```
+
+<ParamField path="PORT" type="number" default="3000">
+  The port where the development server will run
+</ParamField>
+
+<ParamField path="NAME" type="string" default="dev">
+  The site name identifier
+</ParamField>
+
+<ParamField path="TENANT_ID" type="string" default="dev">
+  The tenant identifier for multi-tenancy support
+</ParamField>
+
+<ParamField path="NODE_ENV" type="string" default="development">
+  The Node.js environment mode
+</ParamField>
+
+## PM2 Configuration
+
+The dev command uses the ecosystem configuration from `bin/loopar.ecosystem.config.mjs`:
+
+```javascript bin/loopar.ecosystem.config.mjs
+export { apps } from "loopar/bin/build.js";
+```
+
+This loads the PM2 app configuration which includes:
+
+```javascript
+{
+  namespace: projectName,
+  name: 'dev',
+  script: 'node_modules/loopar/bin/pm2-wrapper.js',
+  env: {
+    NODE_ENV: 'development',
+    TENANT_ID: 'dev',
+    TENANT_PATH: tenantPath,
+    DOMAIN: '',
+    PORT: 3000,
+    IS_LOOPAR: true
+  }
+}
+```
+
+## Development Features
+
+### Hot Module Replacement (HMR)
+
+The dev server includes HMR capabilities, allowing you to see changes in real-time without full page reloads:
+
+- **Automatic Reloading** - Changes to your code are reflected immediately
+- **State Preservation** - Component state is maintained during updates when possible
+- **Fast Feedback** - See your changes in seconds
+
+### Process Monitoring
+
+After starting, you'll see a status table showing:
+
+- **ID** - PM2 process ID
+- **PID** - System process ID
+- **Namespace** - Project namespace
+- **Site** - Site name (dev)
+- **Port** - HTTP port (default 3000)
+- **HMR** - Hot module replacement port
+- **Link** - Direct link to the application
+- **Status** - Current process status
+- **CPU** - CPU usage percentage
+- **Memory** - Memory consumption
+- **Uptime** - Time since the process started
+
+## Accessing Your Application
+
+Once started, your development server is accessible at:
+
+```bash
+http://localhost:3000/desk
+```
+
+The port can be customized by setting the `PORT` environment variable in `sites/dev/.env`.
+
+## Troubleshooting
+
+### Port Already in Use
+
+If port 3000 is already in use, you can change it:
+
+1. Edit `sites/dev/.env`
+2. Change `PORT=3000` to a different port
+3. Restart with `loopar restart dev`
+
+### Site Not Starting
+
+Check the logs for error messages:
+
+```bash
+loopar logs dev
+```
+
+### PM2 Connection Issues
+
+If PM2 fails to connect, try:
+
+```bash
+pm2 kill
+loopar dev
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="View Logs" icon="file-lines" href="/cli/management#logs">
+    Monitor your development server logs in real-time
+  </Card>
+  <Card title="Check Status" icon="circle-info" href="/cli/management#status">
+    View detailed status information about your running processes
+  </Card>
+  <Card title="Production Deployment" icon="rocket" href="/cli/start-stop">
+    Learn how to start your application in production mode
+  </Card>
+  <Card title="Process Control" icon="server" href="/cli/start-stop#restart">
+    Restart your development server after configuration changes
+  </Card>
+</CardGroup>

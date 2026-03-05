@@ -1,0 +1,664 @@
+---
+title: Form Components
+description: Build interactive forms with inputs, selects, checkboxes, date pickers, and more
+---
+
+Form components in Loopar Framework provide a complete set of input controls for collecting user data. All form components are built on top of React Hook Form and include validation, error handling, and designer integration.
+
+## Input
+
+The `input` component is the most versatile form element, supporting multiple formats and validation types.
+
+```jsx packages/loopar/src/components/input.jsx
+export default function Input(props) {
+  const { renderInput, data } = BaseInput(props);
+  const type = props.type || inputType[(data?.format || "data").toLowerCase()] || "text";
+  
+  return renderInput((field) => {
+    return (
+      <>
+        <FormLabel {...props} field={field} />
+        <FormControl>
+          <FormInput
+            placeholder={data.placeholder || data.label}
+            {...field}
+            type={type}
+            min={data.min}
+            max={data.max}
+            className={field.isInvalid ? invalidClass.border : ""}
+          />
+        </FormControl>
+        {data.description && (
+          <FormDescription>{data.description}</FormDescription>
+        )}
+      </>
+    )
+  });
+}
+```
+
+### Input Formats
+
+The input component supports multiple formats defined in `inputType`:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const inputType = {
+  data: "text",
+  text: "text",
+  email: "email",
+  decimal: "number",
+  percent: "number",
+  currency: "text",
+  int: "number",
+  long_int: "number",
+  read_only: "text",
+};
+```
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name for form submission
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Display label for the input
+</ParamField>
+
+<ParamField path="data.format" type="string" default="data">
+  Input format: `text`, `email`, `decimal`, `percent`, `currency`, `int`, `long_int`
+</ParamField>
+
+<ParamField path="data.placeholder" type="string">
+  Placeholder text
+</ParamField>
+
+<ParamField path="data.description" type="string">
+  Helper text below the input
+</ParamField>
+
+<ParamField path="data.required" type="boolean" default={false}>
+  Make field required
+</ParamField>
+
+<ParamField path="data.readonly" type="boolean" default={false}>
+  Make field read-only
+</ParamField>
+
+<ParamField path="data.disabled" type="boolean" default={false}>
+  Disable the input
+</ParamField>
+
+<ParamField path="data.min" type="number">
+  Minimum value (for number inputs)
+</ParamField>
+
+<ParamField path="data.max" type="number">
+  Maximum value (for number inputs)
+</ParamField>
+
+<ParamField path="data.not_validate_type" type="boolean" default={false}>
+  Skip type validation
+</ParamField>
+
+### Examples
+
+<Tabs>
+  <Tab title="Text Input">
+    ```json
+    {
+      "element": "input",
+      "data": {
+        "name": "username",
+        "label": "Username",
+        "placeholder": "Enter your username",
+        "required": true
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Email Input">
+    ```json
+    {
+      "element": "input",
+      "data": {
+        "name": "email",
+        "label": "Email Address",
+        "format": "email",
+        "required": true
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Number Input">
+    ```json
+    {
+      "element": "input",
+      "data": {
+        "name": "age",
+        "label": "Age",
+        "format": "int",
+        "min": 0,
+        "max": 120
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Select
+
+The `select` component provides dropdown selection with support for both local options and remote data sources.
+
+```jsx packages/loopar/src/components/select.jsx
+export default function MetaSelect(props) {
+  const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { renderInput, data } = BaseInput(props);
+
+  const isLocal = useMemo(() => {
+    const options = data.options;
+    return !options || typeof options === "object" || options.includes("\n");
+  }, [data.options]);
+
+  const getServerData = useCallback((q, page = 1, append = false) => {
+    return new Promise((resolve, reject) => {
+      loopar.send({
+        action: `/desk/${getModel()}/search`,
+        params: { q, page, limit: paginationRef.current.limit },
+        success: (r) => {
+          titleFields.current = r.title_fields;
+          const preparedRows = getPrepareOptions(
+            r.rows.map(row => ({
+              value: row.name, 
+              formattedValue: row.formattedValue,
+              label: row 
+            }))
+          );
+          setRows(prevRows => append ? [...prevRows, ...preparedRows] : preparedRows);
+          resolve(preparedRows);
+        },
+      });
+    });
+  }, [data.disabled, getModel, getPrepareOptions]);
+
+  return renderInput((field) => (
+    <>
+      <FormLabel {...props} field={field} />
+      <Select
+        field={field}
+        options={rows}
+        search={search}
+        loadMore={loadMore}
+        data={data}
+        onSelect={field.onChange}
+        isLoading={isLoading}
+      />
+    </>
+  ));
+}
+```
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name for form submission
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Display label
+</ParamField>
+
+<ParamField path="data.options" type="string | array | object" required>
+  Options for the select. Can be:
+  - String: `"option1\noption2\noption3"` (newline-separated)
+  - String: `"value1:Label 1\nvalue2:Label 2"` (with labels)
+  - Array: `["option1", "option2"]`
+  - Object: `{"value1": "Label 1", "value2": "Label 2"}`
+  - Entity name: `"User"` (loads from database)
+</ParamField>
+
+<ParamField path="data.description" type="string">
+  Helper text below the select
+</ParamField>
+
+### Examples
+
+<Tabs>
+  <Tab title="Simple Options">
+    ```json
+    {
+      "element": "select",
+      "data": {
+        "name": "status",
+        "label": "Status",
+        "options": "active\ninactive\npending"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Key-Value Options">
+    ```json
+    {
+      "element": "select",
+      "data": {
+        "name": "country",
+        "label": "Country",
+        "options": "us:United States\nuk:United Kingdom\nca:Canada"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Entity Select">
+    ```json
+    {
+      "element": "select",
+      "data": {
+        "name": "user",
+        "label": "Select User",
+        "options": "User"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Checkbox
+
+The `checkbox` component provides boolean input with checked/unchecked states.
+
+```jsx packages/loopar/src/components/checkbox.jsx
+export default function MetaCheckbox(props) {
+  return <DefaultCheckbox {...props} />
+}
+```
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Checkbox label
+</ParamField>
+
+<ParamField path="data.description" type="string">
+  Helper text
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "checkbox",
+  "data": {
+    "name": "terms_accepted",
+    "label": "I accept the terms and conditions",
+    "required": true
+  }
+}
+```
+
+## Switch
+
+The `switch` component is similar to checkbox but with a toggle switch UI.
+
+### Example
+
+```json
+{
+  "element": "switch",
+  "data": {
+    "name": "notifications_enabled",
+    "label": "Enable Notifications"
+  }
+}
+```
+
+## Date
+
+The `date` component provides a date picker with calendar interface.
+
+```jsx packages/loopar/src/components/date.jsx
+export default function DatePicker(props) {
+  const { renderInput, data, value } = BaseInput(props);
+    
+  return renderInput(field => {
+    const fieldDate = new Date(field.value);
+
+    const setDateHandler = (val) => {
+      const newDate = dayjs(new Date(val));
+      const [year, month, day] = [newDate.year(), newDate.month() + 1, newDate.date()];
+      const date = dayjs(field.value).toDate();
+      date.setFullYear(year);
+      date.setMonth(month - 1);
+      date.setDate(day);
+      value(date);
+    }
+    
+    return (
+      <FormItem className="flex flex-col">
+        <FormLabel>{data.label}</FormLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <FormControl>
+              <Button variant={"outline"}>
+                {field.value ? (
+                  format(dayjs(fieldDate).isValid() ? fieldDate : new Date(), "PPP HH:mm:ss a")
+                ) : (
+                  <span>Pick a date</span>
+                )}
+                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              </Button>
+            </FormControl>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={fieldDate}
+              onSelect={setDateHandler}
+              disabled={(date) =>
+                date > new Date() || date < new Date("1900-01-01")
+              }
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </FormItem>
+    )
+  });
+}
+```
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Date picker label
+</ParamField>
+
+<ParamField path="data.format" type="string" default="YYYY-MM-DD">
+  Date format string
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "date",
+  "data": {
+    "name": "birth_date",
+    "label": "Date of Birth",
+    "required": true
+  }
+}
+```
+
+## Date Time
+
+The `date_time` component includes both date and time selection.
+
+### Example
+
+```json
+{
+  "element": "date_time",
+  "data": {
+    "name": "appointment",
+    "label": "Appointment Time",
+    "format": "YYYY-MM-DD HH:mm:ss"
+  }
+}
+```
+
+## Time
+
+The `time` component provides time-only selection.
+
+### Example
+
+```json
+{
+  "element": "time",
+  "data": {
+    "name": "start_time",
+    "label": "Start Time",
+    "format": "HH:mm:ss"
+  }
+}
+```
+
+## Textarea
+
+The `textarea` component provides multi-line text input.
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Textarea label
+</ParamField>
+
+<ParamField path="data.rows" type="number" default={5}>
+  Number of visible rows
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "textarea",
+  "data": {
+    "name": "description",
+    "label": "Description",
+    "rows": 10,
+    "placeholder": "Enter a detailed description..."
+  }
+}
+```
+
+## Button
+
+The `button` component triggers actions within forms.
+
+```jsx packages/loopar/src/components/button.jsx
+export default function MetaButton(props){
+  const data = props.data || {};
+  const {docRef} = useDocument();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    
+    if (data.action && docRef) {
+      if(!docRef[data.action]) {
+        loopar.throw("Action not Defined",`Action ${data.action} not found in model`)
+      }
+      docRef[data.action]();
+    }
+  }
+
+  return (
+    <Button
+      {...loopar.utils.renderizableProps(props)}
+      variant={getVariant()}
+      onClick={handleClick}
+    >
+      {data.label || "Button"}
+    </Button>
+  );
+}
+```
+
+### Properties
+
+<ParamField path="data.label" type="string" required>
+  Button text
+</ParamField>
+
+<ParamField path="data.action" type="string">
+  Method name to call on the document model (e.g., `save`, `delete`, `print`)
+</ParamField>
+
+<ParamField path="data.variant" type="string" default="default">
+  Button style: `primary`, `secondary`, `default`, `ghost`, `destructive`
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "button",
+  "data": {
+    "label": "Save",
+    "action": "save",
+    "variant": "primary"
+  }
+}
+```
+
+## File Input
+
+The `file_input` component handles file uploads.
+
+### Example
+
+```json
+{
+  "element": "file_input",
+  "data": {
+    "name": "attachment",
+    "label": "Upload File",
+    "accept": ".pdf,.doc,.docx"
+  }
+}
+```
+
+## Image Input
+
+The `image_input` component is specialized for image uploads.
+
+### Example
+
+```json
+{
+  "element": "image_input",
+  "data": {
+    "name": "profile_picture",
+    "label": "Profile Picture",
+    "accept": "image/*"
+  }
+}
+```
+
+## Color Picker
+
+The `color_picker` component provides color selection.
+
+### Example
+
+```json
+{
+  "element": "color_picker",
+  "data": {
+    "name": "theme_color",
+    "label": "Theme Color"
+  }
+}
+```
+
+## Radio Group
+
+The `radio_group` component provides mutually exclusive options.
+
+### Example
+
+```json
+{
+  "element": "radio_group",
+  "data": {
+    "name": "gender",
+    "label": "Gender"
+  },
+  "elements": [
+    {
+      "element": "radio_item",
+      "data": {
+        "name": "male",
+        "label": "Male",
+        "value": "male"
+      }
+    },
+    {
+      "element": "radio_item",
+      "data": {
+        "name": "female",
+        "label": "Female",
+        "value": "female"
+      }
+    }
+  ]
+}
+```
+
+## Validation
+
+All form components support validation through the `dataInterface` class:
+
+```javascript packages/loopar/core/global/element-definition.js
+class DataInterface {
+  validatorRules() {
+    var type = (this.element === INPUT ? this.data.format || this.element : this.element) || 'text';
+    type = type.charAt(0).toUpperCase() + type.slice(1);
+
+    if (this['is' + type]) {
+      return this['is' + type]();
+    }
+
+    return { valid: true };
+  }
+
+  isEmail() {
+    var regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@/;
+    return {
+      valid: regex.test(this.value),
+      message: 'Invalid email address'
+    }
+  }
+
+  validatorRequired() {
+    const required = [true, 'true', 1, '1'].includes(this.data.required);
+    return {
+      valid: !required || !(typeof this.value == "undefined" || this.value.toString().length === 0),
+      message: `${this.__label()} is required`
+    }
+  }
+}
+```
+
+## Base Input Component
+
+All form components extend from `BaseInput` which provides common functionality:
+
+- Form integration with React Hook Form
+- Validation handling
+- Error display
+- Label rendering
+- Description support
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Layout Components" icon="table-cells" href="/components/layout">
+    Structure your forms with rows and columns
+  </Card>
+  <Card title="Data Display" icon="chart-line" href="/components/data-display">
+    Display submitted data with tables
+  </Card>
+</CardGroup>

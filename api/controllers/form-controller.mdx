@@ -1,0 +1,564 @@
+---
+title: FormController
+description: Controller for managing public form documents in Loopar Framework
+---
+
+## Overview
+
+The `FormController` extends `BaseController` and is specifically designed for handling form-type documents that are typically accessed publicly. It enforces view-only access by automatically redirecting all non-view actions to the view action.
+
+## Class Definition
+
+```javascript
+import BaseController from './base-controller.js';
+import { loopar } from "loopar";
+
+export default class FormController extends BaseController {
+  constructor(props) {
+    super(props);
+    this.action !== 'view' && this.redirect('view');
+  }
+
+  async actionView() {
+    const document = await loopar.getDocument(this.document, this.name);
+    return await this.render(document);
+  }
+}
+```
+
+**Source:** `packages/loopar/core/controller/form-controller.js:6`
+
+## When to Use
+
+- For public-facing forms (contact forms, registration forms, surveys)
+- When you want to restrict access to view-only mode
+- For read-only document display
+- When building form submissions that don't require full CRUD operations
+- For external forms that should not allow editing through the UI
+
+## Key Features
+
+- Automatic redirection of all actions to 'view'
+- View-only access enforcement
+- Inherits all BaseController CRUD functionality (available programmatically)
+- Simplified form rendering
+- Ideal for public-facing forms
+
+## Constructor
+
+<ParamField path="props" type="object" required>
+  Configuration object containing controller initialization parameters:
+  - `action`: The current action being performed (will be redirected if not 'view')
+  - `document`: The document type being controlled
+  - `name`: The name/identifier of the specific document instance
+  - `data`: Request data for form submission
+  - `req`: HTTP request object
+  - `res`: HTTP response object
+  - Other inherited controller properties
+</ParamField>
+
+**Behavior:** Automatically redirects to 'view' action if any other action is detected.
+
+## Methods
+
+### actionView()
+
+Handles the view action by loading and rendering the form document.
+
+```javascript
+async actionView()
+```
+
+**Returns:** `Promise<object>` - Rendered document response with form metadata
+
+**Implementation:**
+```javascript
+async actionView() {
+  const document = await loopar.getDocument(this.document, this.name);
+  return await this.render(document);
+}
+```
+
+**Process:**
+1. Loads the document using `loopar.getDocument()`
+2. Renders the document with appropriate metadata
+3. Returns the rendered response for client display
+
+**Source:** `packages/loopar/core/controller/form-controller.js:13`
+
+## Properties
+
+<ResponseField name="action" type="string">
+  Current action being executed - always 'view' due to automatic redirection
+</ResponseField>
+
+<ResponseField name="document" type="string">
+  Document type name being controlled (e.g., 'Contact Form', 'Survey')
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name/identifier of the specific document instance
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Request data object, typically containing form submission data
+</ResponseField>
+
+<ResponseField name="defaultAction" type="string" default="list">
+  Default action inherited from BaseController (redirected to 'view')
+</ResponseField>
+
+<ResponseField name="hasSidebar" type="boolean" default="true">
+  Whether to display sidebar navigation (inherited from BaseController)
+</ResponseField>
+
+## Inherited Methods
+
+FormController inherits all methods from:
+- [BaseController](/api/controllers/base-controller) - Full CRUD operations
+- CoreController - Rendering, error handling, authentication
+- AuthController - User authentication and authorization
+
+### Available Inherited Methods
+
+While UI access is restricted to 'view', these methods are available programmatically:
+
+<AccordionGroup>
+  <Accordion title="actionCreate()">
+    ```javascript
+    async actionCreate()
+    ```
+    Creates a new form document (available programmatically, not via UI routing).
+    
+    **Returns:** `Promise<object>` - Created document or redirect to update
+  </Accordion>
+
+  <Accordion title="actionUpdate(document)">
+    ```javascript
+    async actionUpdate(document)
+    ```
+    Updates an existing form document (available programmatically).
+    
+    **Returns:** `Promise<object>` - Success message or rendered form
+  </Accordion>
+
+  <Accordion title="actionDelete()">
+    ```javascript
+    async actionDelete()
+    ```
+    Deletes a form document (available programmatically).
+    
+    **Returns:** `Promise<object>` - Redirect to list
+  </Accordion>
+
+  <Accordion title="actionList()">
+    ```javascript
+    async actionList()
+    ```
+    Lists all form documents (available programmatically).
+    
+    **Returns:** `Promise<object>` - List of documents with pagination
+  </Accordion>
+</AccordionGroup>
+
+## Usage Examples
+
+### Creating a Contact Form Controller
+
+```javascript
+import FormController from '@loopar/core/controller/form-controller';
+import { loopar } from 'loopar';
+
+export default class ContactFormController extends FormController {
+  constructor(props) {
+    super(props);
+  }
+  
+  // Custom submission handler
+  async actionSubmit() {
+    const { name, email, message } = this.data;
+    
+    // Validate form data
+    if (!email || !message) {
+      return this.error('Email and message are required');
+    }
+    
+    // Create a new contact submission
+    const submission = await loopar.newDocument('Contact Submission', {
+      name,
+      email,
+      message,
+      submitted_at: new Date()
+    });
+    
+    await submission.save();
+    
+    // Send notification email
+    await this.sendNotificationEmail(submission);
+    
+    return this.success('Thank you for contacting us! We will get back to you soon.');
+  }
+  
+  async sendNotificationEmail(submission) {
+    await loopar.sendMail({
+      to: 'admin@example.com',
+      subject: 'New Contact Form Submission',
+      template: 'contact_notification',
+      data: submission
+    });
+  }
+}
+```
+
+### Survey Form with Validation
+
+```javascript
+import FormController from '@loopar/core/controller/form-controller';
+import { loopar } from 'loopar';
+
+export default class SurveyFormController extends FormController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const document = await loopar.getDocument(this.document, this.name);
+    
+    // Check if user already submitted
+    const existingSubmission = await this.checkExistingSubmission();
+    
+    if (existingSubmission) {
+      document.alreadySubmitted = true;
+      document.submittedAt = existingSubmission.creation;
+    }
+    
+    return await this.render(document);
+  }
+  
+  async checkExistingSubmission() {
+    const userId = loopar.currentUser?.name;
+    if (!userId) return null;
+    
+    return await loopar.db.getDoc('Survey Response', {
+      survey: this.name,
+      user: userId
+    });
+  }
+  
+  async actionSubmitSurvey() {
+    // Prevent duplicate submissions
+    const existing = await this.checkExistingSubmission();
+    if (existing) {
+      return this.error('You have already submitted this survey');
+    }
+    
+    // Validate responses
+    const validation = await this.validateResponses(this.data.responses);
+    if (!validation.valid) {
+      return this.error(validation.message);
+    }
+    
+    // Save survey response
+    const response = await loopar.newDocument('Survey Response', {
+      survey: this.name,
+      user: loopar.currentUser?.name,
+      responses: JSON.stringify(this.data.responses),
+      completed_at: new Date()
+    });
+    
+    await response.save();
+    
+    return this.success('Survey submitted successfully!');
+  }
+  
+  async validateResponses(responses) {
+    const survey = await loopar.getDocument(this.document, this.name);
+    const requiredFields = survey.questions.filter(q => q.required);
+    
+    for (const field of requiredFields) {
+      if (!responses[field.name]) {
+        return {
+          valid: false,
+          message: `${field.label} is required`
+        };
+      }
+    }
+    
+    return { valid: true };
+  }
+}
+```
+
+### Registration Form with Email Verification
+
+```javascript
+import FormController from '@loopar/core/controller/form-controller';
+import { loopar } from 'loopar';
+
+export default class RegistrationFormController extends FormController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionRegister() {
+    const { email, username, password, confirmPassword } = this.data;
+    
+    // Validation
+    if (password !== confirmPassword) {
+      return this.error('Passwords do not match');
+    }
+    
+    // Check if user already exists
+    const existingUser = await loopar.db.getDoc('User', { email });
+    if (existingUser) {
+      return this.error('Email already registered');
+    }
+    
+    // Create user
+    const user = await loopar.newDocument('User', {
+      email,
+      username,
+      password: await loopar.utils.hashPassword(password),
+      status: 'Pending Verification',
+      verification_token: loopar.utils.generateToken()
+    });
+    
+    await user.save();
+    
+    // Send verification email
+    await this.sendVerificationEmail(user);
+    
+    return this.success(
+      'Registration successful! Please check your email to verify your account.',
+      { redirect: '/auth/verification-sent' }
+    );
+  }
+  
+  async sendVerificationEmail(user) {
+    const verificationUrl = `${loopar.baseUrl}/auth/verify?token=${user.verification_token}`;
+    
+    await loopar.sendMail({
+      to: user.email,
+      subject: 'Verify your email',
+      template: 'email_verification',
+      data: {
+        username: user.username,
+        verificationUrl
+      }
+    });
+  }
+  
+  async actionVerify() {
+    const { token } = this.data;
+    
+    const user = await loopar.db.getDoc('User', { verification_token: token });
+    if (!user) {
+      return this.error('Invalid verification token');
+    }
+    
+    user.status = 'Active';
+    user.verification_token = null;
+    user.verified_at = new Date();
+    await user.save();
+    
+    return this.success(
+      'Email verified successfully! You can now log in.',
+      { redirect: '/auth/login' }
+    );
+  }
+}
+```
+
+### Public Feedback Form
+
+```javascript
+import FormController from '@loopar/core/controller/form-controller';
+import { loopar } from 'loopar';
+
+export default class FeedbackFormController extends FormController {
+  // Allow anonymous submissions
+  isPublicAction = true;
+  
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionSubmitFeedback() {
+    const { rating, comments, category } = this.data;
+    
+    // Validation
+    if (!rating || rating < 1 || rating > 5) {
+      return this.error('Please provide a rating between 1 and 5');
+    }
+    
+    // Create feedback record
+    const feedback = await loopar.newDocument('Feedback', {
+      rating,
+      comments,
+      category,
+      user: loopar.currentUser?.name || 'Anonymous',
+      ip_address: this.req.ip,
+      user_agent: this.req.get('user-agent'),
+      submitted_at: new Date()
+    });
+    
+    await feedback.save();
+    
+    // Track analytics
+    await this.trackFeedbackAnalytics(feedback);
+    
+    return this.success('Thank you for your feedback!');
+  }
+  
+  async trackFeedbackAnalytics(feedback) {
+    const analytics = await loopar.newDocument('Feedback Analytics', {
+      date: new Date().toISOString().split('T')[0],
+      category: feedback.category,
+      avg_rating: feedback.rating,
+      count: 1
+    });
+    
+    await analytics.save();
+  }
+}
+```
+
+## Best Practices
+
+<Note>
+  **View-Only Mode**: FormController automatically restricts UI access to view mode. For form submissions, implement custom actions like `actionSubmit()`.
+</Note>
+
+<Warning>
+  All non-view actions are automatically redirected to view. If you need to access create, update, or delete actions, call them programmatically or use a different controller type.
+</Warning>
+
+### Do's
+
+- Use FormController for public-facing forms
+- Implement custom actions (e.g., `actionSubmit()`) for form processing
+- Add validation logic in custom action methods
+- Use for read-only document display
+- Implement rate limiting for public form submissions
+- Send confirmation emails after form submission
+- Track form analytics and submission metrics
+
+### Don'ts
+
+- Don't rely on standard CRUD actions through URL routing
+- Don't use for documents requiring full edit capabilities in UI
+- Don't skip validation on form submissions
+- Don't expose sensitive data in form views
+- Avoid processing form submissions in `actionView()`
+
+## Security Considerations
+
+<Warning>
+  **Public Access**: FormController is often used for public forms. Ensure proper validation, rate limiting, and security measures.
+</Warning>
+
+### Security Best Practices
+
+```javascript
+import FormController from '@loopar/core/controller/form-controller';
+
+export default class SecureFormController extends FormController {
+  async actionSubmit() {
+    // 1. Rate limiting
+    const rateLimitCheck = await this.checkRateLimit();
+    if (!rateLimitCheck.allowed) {
+      return this.error('Too many submissions. Please try again later.');
+    }
+    
+    // 2. CSRF token validation
+    if (!this.validateCsrfToken(this.data.csrfToken)) {
+      return this.error('Invalid security token');
+    }
+    
+    // 3. Input sanitization
+    const sanitizedData = this.sanitizeInput(this.data);
+    
+    // 4. Validation
+    const validation = await this.validate(sanitizedData);
+    if (!validation.valid) {
+      return this.error(validation.message);
+    }
+    
+    // 5. Process submission
+    const result = await this.processSubmission(sanitizedData);
+    
+    return this.success('Form submitted successfully');
+  }
+  
+  async checkRateLimit() {
+    const ip = this.req.ip;
+    const key = `form_submit_${ip}`;
+    const count = await loopar.cache.get(key) || 0;
+    
+    if (count >= 5) {
+      return { allowed: false };
+    }
+    
+    await loopar.cache.set(key, count + 1, 3600); // 1 hour
+    return { allowed: true };
+  }
+  
+  sanitizeInput(data) {
+    // Implement input sanitization
+    return Object.entries(data).reduce((acc, [key, value]) => {
+      if (typeof value === 'string') {
+        acc[key] = loopar.utils.sanitize(value);
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  }
+}
+```
+
+## Comparison with Other Controllers
+
+| Feature | FormController | BaseController | SingleController | ViewController |
+|---------|---------------|----------------|------------------|----------------|
+| Multiple instances | Yes | Yes | No | No |
+| List view | Redirected | Yes | Redirected | Redirected |
+| Create/Update via UI | No | Yes | Limited | No |
+| Best for | Public forms | Data entities | Settings | Read-only views |
+| Action restriction | View only | All actions | View/Update | View only |
+
+## Related Controllers
+
+- [BaseController](/api/controllers/base-controller) - Parent class with full CRUD
+- [ViewController](/api/controllers/view-controller) - Similar view-only behavior
+- [SingleController](/api/controllers/single-controller) - For single-instance documents
+- [ReportController](/api/controllers/report-controller) - For report generation
+
+## Common Use Cases
+
+1. **Contact Forms**: Public contact/inquiry forms
+2. **Registration Forms**: User registration and signup
+3. **Survey Forms**: Customer surveys and feedback
+4. **Lead Generation**: Marketing lead capture forms
+5. **Support Tickets**: Public support request forms
+6. **Newsletter Signup**: Email subscription forms
+7. **Event Registration**: Event RSVP and registration
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot access edit or create actions">
+    This is by design. FormController restricts all actions to 'view'. Implement custom actions like `actionSubmit()` for form processing, or use BaseController if you need full CRUD access.
+  </Accordion>
+
+  <Accordion title="Form submissions not working">
+    Ensure you've implemented a custom action method (e.g., `actionSubmit()`) to handle form submissions. The default CRUD actions are not accessible via URL routing.
+  </Accordion>
+
+  <Accordion title="Redirect loop on form access">
+    Check that you're accessing the form with the 'view' action:
+    ```
+    /desk/ContactForm/view?name=main-contact-form
+    ```
+  </Accordion>
+</AccordionGroup>

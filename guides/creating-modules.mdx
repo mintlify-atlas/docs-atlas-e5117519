@@ -1,0 +1,253 @@
+---
+title: Creating Modules
+description: Learn how to create custom modules in Loopar Framework with step-by-step guidance
+---
+
+Modules are the building blocks of Loopar applications. They organize your application's functionality into logical units containing controllers, forms, pages, and business logic.
+
+## Module Structure
+
+Loopar follows a convention-based directory structure for organizing modules:
+
+```
+packages/loopar/apps/
+└── your-app/
+    └── modules/
+        └── your-module/
+            ├── controllers/
+            │   └── your-controller/
+            │       ├── your-controller.js
+            │       └── your-controller-controller.js
+            ├── forms/
+            │   └── your-form/
+            │       ├── your-form.js
+            │       └── client/
+            │           └── your-form-form.jsx
+            └── pages/
+                └── your-page/
+                    ├── your-page.js
+                    └── your-page-controller.js
+```
+
+<Note>
+  Each module component follows kebab-case naming convention. For example, "Customer Order" becomes "customer-order".
+</Note>
+
+## Creating Your First Module
+
+<Steps>
+
+### Step 1: Create Module Directory
+
+Create a new directory under `packages/loopar/apps/your-app/modules/`:
+
+```bash
+mkdir -p packages/loopar/apps/your-app/modules/customer
+```
+
+### Step 2: Create a Document Class
+
+Document classes extend `BaseDocument` and contain your business logic:
+
+```javascript title="packages/loopar/apps/your-app/modules/customer/forms/customer/customer.js"
+import { loopar, fileManage, BaseDocument } from "loopar";
+
+export default class Customer extends BaseDocument {
+  async validateEmail() {
+    const email = this.email;
+    
+    if (!email || !email.includes('@')) {
+      loopar.throw({
+        message: "Please provide a valid email address"
+      });
+    }
+  }
+
+  async beforeSave() {
+    await this.validateEmail();
+  }
+
+  async afterSave() {
+    console.log(`Customer ${this.name} saved successfully`);
+  }
+}
+```
+
+### Step 3: Create a Controller
+
+Controllers handle HTTP requests and routing. Extend the appropriate base controller:
+
+```javascript title="packages/loopar/apps/your-app/modules/customer/forms/customer/customer-controller.js"
+import { BaseController, loopar } from "loopar";
+
+export default class CustomerController extends BaseController {
+  async actionSendWelcome() {
+    if (this.hasData()) {
+      const customer = await loopar.getDocument('Customer', this.name);
+      
+      // Send welcome email logic here
+      
+      return this.success(`Welcome email sent to ${customer.email}`);
+    }
+  }
+}
+```
+
+### Step 4: Create the Installer
+
+The installer defines how your module is deployed. Create an `installer.js` file in your app root:
+
+```javascript title="packages/loopar/apps/your-app/installer.js"
+import path from "pathe";
+import { loopar, fileManage } from "loopar";
+import BaseDocument from "../../loopar/core/document/base-document.js";
+
+export default class Installer extends BaseDocument {
+  async install(reinstall = false) {
+    loopar.installingApp = this.app_name;
+    console.log("Installing App", this.app_name);
+
+    await this.installData(reinstall);
+
+    loopar.installingApp = null;
+    await loopar.setApp({[this.app_name]: true});
+    
+    await loopar.build();
+    console.log(`App ${this.app_name} installed successfully!`);
+    return `App ${this.app_name} installed successfully!`;
+  }
+
+  async installData(reinstall = false) {
+    const moduleRoute = loopar.makePath('apps', this.app_name);
+    const appData = await fileManage.getConfigFile('installer', moduleRoute);
+
+    // Installation logic
+    for (const e of Object.keys(appData.documents)) {
+      const ent = appData.documents[e];
+      const [constructor, name] = e.split(':');
+      
+      if (ent.root) {
+        const entityData = await fileManage.getConfigFile(name, ent.root);
+        const doc = await loopar.newDocument(constructor, entityData);
+        await doc.save({ validate: false });
+      }
+    }
+
+    return `App ${this.app_name} installed successfully!`;
+  }
+}
+```
+
+</Steps>
+
+## Document Lifecycle Hooks
+
+Loopar provides several lifecycle hooks you can override in your document classes:
+
+```javascript
+export default class MyDocument extends BaseDocument {
+  // Called before validation
+  async beforeValidate() {
+    // Custom validation logic
+  }
+
+  // Called before saving to database
+  async beforeSave() {
+    // Pre-save operations
+  }
+
+  // Called after saving to database
+  async afterSave() {
+    // Post-save operations
+  }
+
+  // Called before deletion
+  async beforeDelete() {
+    // Pre-delete checks
+  }
+
+  // Called after deletion
+  async afterDelete() {
+    // Cleanup operations
+  }
+}
+```
+
+## Working with Values
+
+Access and manipulate document data using the `values()` method:
+
+```javascript
+export default class Connector extends BaseDocument {
+  async connect() {
+    const values = await this.values();
+    const dbConfig = loopar.getDbConfig();
+    const originalConfig = dbConfig.connection || {};
+
+    Object.assign(dbConfig, {
+      dialect: values.database,
+      connection: Object.assign(originalConfig, values)
+    });
+
+    await loopar.setDbConfig(dbConfig);
+    await loopar.db.initialize();
+
+    if (await loopar.db.testServer()) {
+      await loopar.initialize();
+      return true;
+    } else {
+      loopar.throw({
+        message: `Could not connect to the database server`
+      });
+    }
+  }
+}
+```
+
+## File Naming Conventions
+
+Loopar uses utility functions to convert names between formats:
+
+```javascript
+import { fileManage } from "loopar";
+
+// Convert to kebab-case for file names
+fileManage.fileName("CustomerOrder"); // "customer-order.js"
+fileManage.folderName("CustomerOrder"); // "customer-order"
+
+// Convert to class name
+fileManage.className("Customer Order"); // "CustomerOrder"
+```
+
+<Warning>
+  Always follow the kebab-case naming convention for files and directories. The framework automatically handles conversions between formats.
+</Warning>
+
+## Importing and Using Loopar Utilities
+
+Loopar provides a comprehensive set of utilities:
+
+```javascript
+import { loopar, fileManage, BaseDocument } from "loopar";
+
+// File operations
+await fileManage.makeFolder('apps', 'my-app', 'modules');
+await fileManage.existFile('path/to/file.js');
+
+// Document operations
+const doc = await loopar.newDocument('Customer', { name: 'John Doe' });
+const existing = await loopar.getDocument('Customer', 'CUST-001');
+const list = await loopar.getList('Customer', { data: { status: 'Active' } });
+
+// Database operations
+const value = await loopar.db.getValue('Customer', 'email', { name: 'CUST-001' });
+const count = await loopar.db.count('Customer', { status: 'Active' });
+```
+
+## Next Steps
+
+Now that you understand module structure, learn about:
+
+- [Controllers Guide](/guides/controllers-guide) - Handle HTTP requests and actions
+- [Authentication](/guides/authentication) - Secure your modules
+- [File Management](/guides/file-management) - Handle file uploads

@@ -1,0 +1,229 @@
+---
+title: Visual Designer Overview
+description: Introduction to the Loopar Framework's visual designer for building interfaces without code
+---
+
+The Loopar Framework includes a powerful visual designer that enables you to build user interfaces through an intuitive drag-and-drop experience. This visual approach allows both developers and non-developers to create forms, pages, and complex layouts without writing code.
+
+## What You Can Build
+
+The visual designer supports three categories of elements:
+
+<CardGroup cols={3}>
+  <Card title="Layout Elements" icon="grid">
+    Structure your UI with sections, rows, columns, cards, tabs, and containers
+  </Card>
+  <Card title="Design Elements" icon="palette">
+    Add visual components like images, sliders, buttons, links, icons, and text blocks
+  </Card>
+  <Card title="Form Elements" icon="input">
+    Create interactive forms with inputs, selects, checkboxes, date pickers, and more
+  </Card>
+</CardGroup>
+
+### Available Element Types
+
+The designer provides access to over 60 pre-built components organized into logical groups:
+
+**Layout Elements**: `section`, `div`, `row`, `col`, `card`, `tabs`, `container`, `panel`
+
+**Design Elements**: `image`, `slider`, `button`, `link`, `icon`, `text_block`, `markdown`, `html_block`
+
+**Form Elements**: `input`, `textarea`, `select`, `checkbox`, `switch`, `date`, `date_time`, `file_input`, `color_picker`
+
+<Note>
+  All elements are defined in `packages/loopar/core/global/element-definition.js` and can be extended with custom components.
+</Note>
+
+## Designer Modes
+
+The visual designer operates in three distinct modes:
+
+<Steps>
+  <Step title="Designer Mode">
+    Full drag-and-drop interface with element palette visible. This is where you build and arrange your UI structure.
+  </Step>
+  <Step title="Editor Mode">
+    Focus on configuring properties for a selected element. Access element-specific settings, styling options, and data bindings.
+  </Step>
+  <Step title="Preview Mode">
+    View your design as it will appear to end users without design controls visible.
+  </Step>
+</Steps>
+
+Switch between modes using the toolbar buttons:
+
+```jsx
+// Designer button component from base-designer.jsx
+const DesignerButton = () => {
+  const { designerMode, designerModeType } = useDesigner();
+  const { sidebarOpen } = useDocument();
+
+  if (!designerMode || designerModeType == "preview") {
+    return <><BrushIcon className="mr-2" /> Design</>
+  }
+
+  if (designerModeType == "editor") {
+    if (sidebarOpen) {
+      return <><BrushIcon className="mr-2" /> Design</>
+    } else {
+      return <><EyeIcon className="mr-2" /> Preview</>
+    }
+  }
+
+  if (designerModeType == "designer") {
+    return <><EyeIcon className="mr-2" /> Preview</>
+  }
+}
+```
+
+## When to Use the Visual Designer
+
+The visual designer is ideal for:
+
+<AccordionGroup>
+  <Accordion title="Rapid Prototyping">
+    Quickly create functional UIs to test ideas and gather feedback without writing code.
+  </Accordion>
+  <Accordion title="Form Creation">
+    Build complex data entry forms with validation, default values, and conditional logic.
+  </Accordion>
+  <Accordion title="Admin Interfaces">
+    Design CRUD (Create, Read, Update, Delete) interfaces for managing application data.
+  </Accordion>
+  <Accordion title="Content Pages">
+    Construct marketing pages, documentation, or informational content with rich layouts.
+  </Accordion>
+  <Accordion title="Empowering Non-Developers">
+    Allow content creators and business users to maintain and update interfaces independently.
+  </Accordion>
+</AccordionGroup>
+
+## Core Features
+
+### AI-Powered Design
+
+The designer includes an AI assistant that can generate UI structures from natural language prompts:
+
+```jsx
+// From base-designer.jsx:284-288
+<Button
+  variant="secondary"
+  onClick={() => setSendingPrompt(true)}
+>
+  <SparkleIcon className="mr-2" />
+  Design AI
+</Button>
+```
+
+<Tip>
+  Try prompts like "Generate a form that allows me to manage inventory data" to quickly scaffold complex interfaces.
+</Tip>
+
+### META Tab
+
+The designer includes a META tab that displays the raw JSON structure of your design:
+
+```jsx
+// View the complete metadata structure
+<Tab label="META" name="meta_tab">
+  <MarkdownPreview 
+    source={`\`\`\`jsx\n${JSON.stringify(metaComponents, null, 2)}\n\`\`\``} 
+  />
+</Tab>
+```
+
+This JSON can be:
+- Exported for version control
+- Shared between projects
+- Manually edited for advanced customization
+- Used in migrations and templates
+
+### Drag Toggle Control
+
+Control when drag-and-drop is active:
+
+```jsx
+// Toggle drag functionality on/off
+<Button 
+  className={dragEnabled ? 'bg-red-500' : 'bg-secondary'}
+  onClick={() => setDragEnable(!dragEnabled)}
+>
+  <HandGrab/>
+</Button>
+```
+
+## Designer Context
+
+The designer exposes a context API for programmatic access:
+
+```jsx
+import { useDesigner } from "@context/@/designer-context";
+
+const {
+  designerMode,          // Boolean: designer active
+  designerModeType,      // String: "designer" | "editor" | "preview"
+  designing,             // Boolean: in design or editor mode
+  updatingElement,       // Object: currently selected element
+  handleEditElement,     // Function: open element editor
+  handleDeleteElement,   // Function: remove an element
+  updateElement,         // Function: modify element data
+  updateElements,        // Function: update element tree
+  dragEnabled,           // Boolean: drag-and-drop active
+  setDragEnable          // Function: toggle drag state
+} = useDesigner();
+```
+
+## Metadata Structure
+
+Every designed interface is represented as a JSON metadata structure:
+
+```json
+[
+  {
+    "element": "row",
+    "data": {
+      "key": "row_1",
+      "label": "Row 1"
+    },
+    "elements": [
+      {
+        "element": "col",
+        "data": {
+          "key": "col_1",
+          "label": "Column 1"
+        },
+        "elements": [
+          {
+            "element": "input",
+            "data": {
+              "key": "name_input",
+              "name": "name",
+              "label": "Name",
+              "required": 1
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
+```
+
+<Note>
+  The metadata structure automatically maintains unique keys, validates field names, and ensures proper nesting relationships.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Drag and Drop" icon="hand" href="/designer/drag-and-drop">
+    Learn how to use the drag-and-drop system
+  </Card>
+  <Card title="Element Editor" icon="sliders" href="/designer/element-editor">
+    Configure component properties
+  </Card>
+  <Card title="Workspace" icon="window" href="/designer/workspace">
+    Understand the designer interface
+  </Card>
+</CardGroup>

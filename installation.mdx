@@ -1,0 +1,291 @@
+---
+title: Installation
+description: Install Loopar Framework using automatic NPX installation or manual Git clone method
+---
+
+# Installation
+
+Loopar Framework can be installed using two methods: automatic installation with NPX or manual installation from the Git repository.
+
+## Prerequisites
+
+<Warning>
+  Loopar requires **Node.js 22.12.0 or higher**. Make sure you have the correct version installed before proceeding.
+</Warning>
+
+Check your Node.js version:
+
+```bash
+node --version
+```
+
+If you need to upgrade, visit [nodejs.org](https://nodejs.org) or use a version manager like [nvm](https://github.com/nvm-sh/nvm).
+
+## Automatic Installation (Recommended)
+
+The fastest way to get started with Loopar is using `npx`:
+
+<Steps>
+  <Step title="Run the installer">
+    Execute the NPX command with your project name and optional port:
+    
+    ```bash
+    sudo npx loopar-env project-name --port 8080
+    ```
+    
+    Replace `project-name` with your desired project name and `8080` with your preferred port (default is 3000).
+    
+    <Note>
+      The `sudo` prefix may be required depending on your system permissions.
+    </Note>
+  </Step>
+  
+  <Step title="Wait for installation">
+    The installer will:
+    - Download the Loopar Framework
+    - Install all dependencies
+    - Create the initial project structure
+    - Set up the dev environment
+  </Step>
+  
+  <Step title="Server starts automatically">
+    Your development server will start automatically after installation completes.
+    
+    ```bash
+    ✅ Dev site created: sites/dev
+       URL: http://localhost:8080
+    ```
+  </Step>
+  
+  <Step title="Complete setup wizard">
+    Navigate to `http://localhost:8080` in your browser. You'll see a setup wizard where you can:
+    - Configure your database type (MariaDB, MySQL, or SQLite)
+    - Enter database connection details
+    - Define your project settings
+  </Step>
+</Steps>
+
+## Manual Installation
+
+For more control over the installation process, you can clone the repository manually.
+
+### Clone from Git
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/alphabit-technology/loopar-framework.git project-name
+    cd project-name
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    Loopar uses a monorepo structure with workspaces. You can use either **pnpm** (recommended) or **yarn**:
+    
+    <CodeGroup>
+    ```bash pnpm
+    pnpm install
+    ```
+    
+    ```bash yarn
+    yarn install
+    ```
+    </CodeGroup>
+    
+    <Warning>
+      **Do not use npm** for installation. The project is configured with pnpm workspaces and requires either pnpm or yarn for proper dependency management.
+    </Warning>
+  </Step>
+  
+  <Step title="Start development server">
+    <CodeGroup>
+    ```bash pnpm
+    pnpm run dev
+    ```
+    
+    ```bash yarn
+    yarn run dev
+    ```
+    </CodeGroup>
+    
+    This command will:
+    - Run the preinstall script to clean lock files
+    - Execute `ensure-site.js` to create a dev site if needed
+    - Start the application with PM2
+    - Begin tailing logs
+  </Step>
+</Steps>
+
+## Installation Process Details
+
+### Preinstall Script
+
+During installation, Loopar runs cleanup to ensure a fresh environment:
+
+```javascript bin/installer-clean.js
+import { rm } from 'fs/promises';
+
+async function cleanDistFolder() {
+  try {
+    await rm('../package-lock.json', { recursive: true, force: true });
+    await rm('../yarn.lock', { recursive: true, force: true });
+    await rm('../pnpm-lock.yaml', { recursive: true, force: true });
+  } catch (error) {
+    console.error('An error occurred while installer clean:', error);
+  }
+}
+
+cleanDistFolder();
+```
+
+This ensures compatibility by removing existing lock files from other package managers.
+
+### Dev Site Creation
+
+After installation, the `ensure-site.js` script automatically creates a development site:
+
+```javascript bin/ensure-site.js
+const sitesDir = path.join(process.cwd(), 'sites', 'dev');
+
+if (!existsSync(sitesDir)) {
+  await fs.mkdir(sitesDir, { recursive: true });
+}
+
+// Creates directory structure:
+// sites/dev/
+//   ├── .env
+//   ├── config/
+//   ├── sessions/
+//   └── public/uploads/
+```
+
+The generated `.env` file contains:
+
+```bash .env
+PORT=3000
+NAME=dev
+TENANT_ID=dev
+NODE_ENV=development
+```
+
+## Verify Installation
+
+Once installation is complete, verify everything is working:
+
+<Steps>
+  <Step title="Check server status">
+    ```bash
+    pnpm run list
+    # or
+    yarn run list
+    ```
+    
+    This shows all running PM2 processes.
+  </Step>
+  
+  <Step title="Access the application">
+    Open your browser and navigate to:
+    ```
+    http://localhost:3000
+    ```
+    (or the port you specified during installation)
+  </Step>
+  
+  <Step title="View logs">
+    Monitor application logs:
+    ```bash
+    pnpm run logs
+    # or
+    yarn run logs
+    ```
+  </Step>
+</Steps>
+
+## Available Scripts
+
+After installation, these scripts are available:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "node bin/loopar-cli.js dev && pm2 logs",
+    "start": "node bin/loopar-cli.js start",
+    "stop": "node bin/loopar-cli.js stop",
+    "restart": "node bin/loopar-cli.js restart",
+    "logs": "node bin/loopar-cli.js logs",
+    "list": "node bin/loopar-cli.js list"
+  }
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="dev" icon="code">
+    Start development server with hot reloading
+  </Card>
+  <Card title="start" icon="play">
+    Start production server
+  </Card>
+  <Card title="stop" icon="stop">
+    Stop all running processes
+  </Card>
+  <Card title="restart" icon="rotate">
+    Restart all processes
+  </Card>
+  <Card title="logs" icon="file-text">
+    View application logs
+  </Card>
+  <Card title="list" icon="list">
+    List all running processes
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port already in use">
+    If you see a port conflict error:
+    
+    1. Stop the process using that port
+    2. Change the port in `sites/dev/.env`
+    3. Restart the server
+    
+    ```bash
+    pnpm run stop
+    # Edit sites/dev/.env and change PORT
+    pnpm run dev
+    ```
+  </Accordion>
+  
+  <Accordion title="Permission denied errors">
+    If you encounter permission errors:
+    
+    - Use `sudo` for the NPX installation
+    - Check file permissions in the project directory
+    - Ensure Node.js has proper access rights
+  </Accordion>
+  
+  <Accordion title="Module not found errors">
+    If dependencies are missing:
+    
+    ```bash
+    # Clean install
+    rm -rf node_modules
+    pnpm install
+    ```
+  </Accordion>
+  
+  <Accordion title="Database connection errors">
+    If the setup wizard shows database errors:
+    
+    - Verify database server is running
+    - Check connection credentials
+    - Ensure database user has proper permissions
+    - For development, SQLite requires no additional setup
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Now that Loopar is installed, follow the quick start guide to build your first application
+</Card>

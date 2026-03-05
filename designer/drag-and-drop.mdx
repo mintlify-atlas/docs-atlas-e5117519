@@ -1,0 +1,397 @@
+---
+title: Drag and Drop System
+description: Learn how to use the visual designer's drag-and-drop interface to build UIs
+---
+
+The Loopar Framework's drag-and-drop system allows you to visually construct user interfaces by dragging elements from the component palette and dropping them into droppable containers. The system provides real-time visual feedback and intelligent placement detection.
+
+## How It Works
+
+The drag-and-drop system consists of three main components:
+
+<Steps>
+  <Step title="Draggable Elements">
+    Components in the sidebar palette that can be dragged into the workspace
+  </Step>
+  <Step title="Droppable Containers">
+    Areas where elements can be placed (forms, rows, columns, tabs, etc.)
+  </Step>
+  <Step title="Drag Context">
+    State management that tracks the current drag operation and handles drop events
+  </Step>
+</Steps>
+
+## Creating New Elements
+
+When you drag an element from the palette, the system creates a new instance:
+
+```jsx
+// From design-element.jsx:13-23
+const elementToCreate = () => {
+  const elementName = elementManage.elementName(toElement);
+
+  return {
+    element: toElement,
+    data: {
+      ...elementName,
+      key: elementName.key
+    }
+  }
+}
+```
+
+### Starting a Drag Operation
+
+When you press down on a draggable element:
+
+```jsx
+// From design-element.jsx:27-51
+const dragStart = (e) => {
+  const el = elementToCreate();
+  const rect = draggableRef.current.getBoundingClientRect();
+  setInitializedDragging(true);
+
+  setCurrentDragging({
+    isNew: true,
+    key: el.data.key,
+    el,
+    ref: draggableRef.current,
+    initialPosition: {
+      x: e.clientX,
+      y: e.clientY,
+    },
+    offset: {
+      x: e.clientX - rect.x,
+      y: e.clientY - rect.y,
+    },
+    size: {
+      width: rect.width,
+      height: rect.height,
+    },
+    className: className + " mb-4",
+  });
+};
+```
+
+<Note>
+  The system captures the element's size, position, and cursor offset to provide smooth visual feedback during dragging.
+</Note>
+
+## Droppable Areas
+
+Any container element can act as a drop zone. The system automatically detects valid drop targets:
+
+```jsx
+// From droppable.jsx:13-166
+function DroppableContainer({ data = {}, children, className, Component = "div", ...props }) {
+  const [elements, setElements] = useState(props.elements || []);
+  const [position, setPosition] = useState(null);
+
+  const { 
+    dropZone, 
+    currentDragging, 
+    movement,
+    draggingEvent,
+    dragging,
+    setGlobalPosition,
+  } = useDragAndDrop();
+
+  const {droppableEvents, dragOver, __REFS__} = useDroppable();
+
+  const dropZoneRef = useRef();
+  // ... drop handling logic
+}
+```
+
+### Visual Feedback
+
+As you drag an element over a droppable container, the system provides visual cues:
+
+```jsx
+// From droppable.jsx:142-148
+const ClassNames = cn(
+  "rounded",
+  "bg-card h-full min-h-20 w-full p-2 space-y-3 py-3 pt-4",
+  dragOver ? 'bg-gradient-to-r from-slate-400/30 to-slate-600/60 shadow' : "",
+  className,
+  renderizableProps.className
+);
+```
+
+<Tip>
+  When a valid drop zone is detected, it highlights with a gradient background to indicate where the element will be placed.
+</Tip>
+
+## Placement Detection
+
+The system intelligently determines where to insert the dragged element based on cursor position:
+
+```jsx
+// From droppable.jsx:71-95
+const getIndex = useCallback((currentKey) => {
+  const brothers = getBrothers(currentKey);
+
+  if (!movement) return brothers.length;
+  if (brothers.length === 0) return 0;
+
+  const draggedTop = movement.y - currentDragging.offset.y;
+  const draggedBottom = draggedTop + currentDragging.size.height;
+
+  for (let i = 0; i < brothers.length; i++) {
+    const rect = brothers[i];
+
+    if (global.verticalDirection === UP) {
+      if (draggedTop < (rect.y + (rect.height * 0.75))) return i;
+    } else {
+      if ((rect.y + (rect.height * 0.25)) > draggedBottom) return i;
+    }
+  }
+
+  return brothers.length;
+}, [
+  getBrothers,
+  currentDragging,
+  global.verticalDirection
+]);
+```
+
+This algorithm:
+- Compares the dragged element's position to existing sibling elements
+- Uses different thresholds based on drag direction (up vs down)
+- Determines the insertion index for smooth placement
+
+## Drop Preview
+
+As you drag, a ghost preview shows where the element will be placed:
+
+```jsx
+// From droppable.jsx:97-118
+useEffect(() => {
+  if(!dragging || !draggingEvent || !movement) return
+  if(!dropZone || dropZone !== data.key || position == null) return;
+  if (!currentDragging || currentDragging.key == data?.key) return;
+
+  const rect = draggingEvent;
+  const { size } = currentDragging;
+  const { height } = size;
+
+  if (rect) {
+    setElement(
+      <div
+        key={currentDragging.key}
+        style={{ maxHeight: height }}
+        className={`${currentDragging.className} pointer-events-none opacity-60 border-2 border-dashed border-primary/70`}
+        dangerouslySetInnerHTML={{ __html: currentDragging.ref?.innerHTML }}
+      />,
+      position
+    );
+  }
+}, [position, dropZone, data, currentDragging, dragging]);
+```
+
+## Completing the Drop
+
+When you release the mouse, the system finalizes the placement:
+
+```jsx
+// From DragAndDropContext.jsx:9-55
+export function completeDrop({ elements, targetKey, dropped, globalPosition }) {
+  const cloned = JSON.parse(JSON.stringify(elements));
+
+  function insert(nodes) {
+    return nodes.map(node => {
+      if (!node.data) return node;
+
+      if (node.data.key === targetKey) {
+        const filtered = (node.elements || []).filter(
+          child => child.data.key !== dropped.el.data.key
+        );
+        filtered.splice(globalPosition, 0, dropped.el);
+        return { ...node, elements: filtered };
+      }
+
+      return {
+        ...node,
+        elements: insert(node.elements || [])
+      };
+    });
+  }
+
+  function remove(nodes) {
+    return nodes.reduce((acc, node) => {
+      if (!node.data) {
+        acc.push(node);
+        return acc;
+      }
+
+      if (node.data.key === dropped.parentKey && dropped.parentKey !== targetKey) {
+        const filtered = (node.elements || []).filter(
+          child => child.data.key !== dropped.key
+        );
+        acc.push({ ...node, elements: filtered });
+      } else {
+        acc.push({
+          ...node,
+          elements: remove(node.elements || [])
+        });
+      }
+
+      return acc;
+    }, []);
+  }
+
+  return remove(insert(cloned));
+}
+```
+
+This function:
+1. Clones the element tree to avoid mutations
+2. Removes the element from its old location (if moving)
+3. Inserts the element at the new position
+4. Returns the updated tree structure
+
+## Drag and Drop Context
+
+The `DragAndDropProvider` manages the global drag state:
+
+```jsx
+// From DragAndDropContext.jsx:75-241
+export const DragAndDropProvider = (props) => {
+  const { metaComponents, data } = props;
+  const [dropZone, setDropZone] = useState(null);
+  const [currentDragging, setCurrentDragging] = useState(null);
+  const [draggingEvent, setDraggingEvent] = useState(currentDragging?.targetRect);
+  const [movement, setMovement] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [initializedDragging, setInitializedDragging] = useState(false);
+  const [elements, setElements] = useState(metaComponents || []);
+  const [globalPosition, setGlobalPosition] = useState(null);
+  
+  const elementsRef = useRef(elements);
+  const containerRef = useRef(null);
+
+  // ... event handlers and state management
+}
+```
+
+### Available Context Values
+
+```jsx
+import { useDragAndDrop } from "../droppable/DragAndDropContext";
+
+const {
+  metaComponents,        // Current element tree
+  dropZone,              // Active drop zone key
+  setDropZone,           // Function to set drop zone
+  currentDragging,       // Element being dragged
+  setCurrentDragging,    // Start drag operation
+  draggingEvent,         // Current mouse position
+  movement,              // Drag movement delta
+  handleDrop,            // Complete drop operation
+  dragging,              // Boolean: actively dragging
+  setInitializedDragging, // Initialize drag state
+  baseElements,          // Original elements array
+  setGlobalPosition,     // Set insertion position
+  containerRef           // Reference to drag container
+} = useDragAndDrop();
+```
+
+## Auto-Scrolling
+
+The system automatically scrolls the page when dragging near edges:
+
+```jsx
+// From DragAndDropContext.jsx:100-114
+useEffect(() => {
+  if (draggingEvent && movement && currentDragging) {
+    const scrollSpeed = 10;
+    const scrollBuffer = 50;
+
+    const draggedTop = movement.y - currentDragging.offset.y;
+    const draggedBottom = draggedTop + currentDragging.size.height;
+
+    if (global.verticalDirection === UP && draggedTop <= scrollBuffer) {
+      window.scrollTo(0, window.scrollY - scrollSpeed);
+    } else if (global.verticalDirection === DOWN && draggedBottom > window.innerHeight - scrollBuffer) {
+      window.scrollBy(0, scrollSpeed);
+    }
+  }
+}, [draggingEvent, global.verticalDirection]);
+```
+
+## Moving Existing Elements
+
+You can also drag existing elements to reorganize your layout:
+
+```jsx
+// From base-designer.jsx:141-177
+const updateElements = (target, elements, current = null) => {
+  const currentElements = metaComponents;
+  const targetKey = target.data.key;
+  const currentKey = current ? current.data.key : null;
+  const lastParentKey = current ? current.parentKey : null;
+
+  // Search target in structure and set elements in target
+  const setElementsInTarget = (structure) => {
+    return structure.map((el) => {
+      el.elements = el.data.key === targetKey ? elements
+        : setElementsInTarget(el.elements || []);
+      return el;
+    });
+  };
+
+  // Search target in structure and set elements in target, if target is self set directly in self
+  let newElements = targetKey === selfKey ? elements
+    : setElementsInTarget(currentElements, selfKey);
+
+  // Search current in structure and delete current in last parent
+  const deleteCurrentOnLastParent = (structure, parent) => {
+    if (lastParentKey === parent) {
+      return structure.filter(e => e.data.key !== currentKey);
+    }
+
+    return structure.map(el => {
+      el.elements = deleteCurrentOnLastParent(el.elements || [], el.data.key);
+      return el;
+    });
+  };
+
+  if (current && lastParentKey !== targetKey) {
+    newElements = deleteCurrentOnLastParent(newElements, selfKey);
+  }
+
+  setMeta(JSON.stringify(newElements));
+}
+```
+
+<Warning>
+  Always use the provided context methods to update element positions. Direct manipulation of the metadata can cause synchronization issues.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Semantic Containers">
+    Organize your UI with proper layout elements (sections, rows, columns) before adding form fields or design elements.
+  </Accordion>
+  <Accordion title="Test Drop Zones">
+    Not all elements can contain children. Form fields like inputs and buttons cannot be drop targets.
+  </Accordion>
+  <Accordion title="Monitor Performance">
+    Large nested structures can impact drag performance. Consider using tabs or fragments to organize complex layouts.
+  </Accordion>
+  <Accordion title="Disable When Editing">
+    Use the drag toggle button to disable drag-and-drop when you need to select text or interact with form elements.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Element Editor" icon="sliders" href="/designer/element-editor">
+    Configure properties for dropped elements
+  </Card>
+  <Card title="Workspace" icon="window" href="/designer/workspace">
+    Learn about the designer interface
+  </Card>
+</CardGroup>

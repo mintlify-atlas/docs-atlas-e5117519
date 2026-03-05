@@ -1,0 +1,406 @@
+---
+title: 'Date Utilities'
+description: 'Date and time manipulation functions for the Loopar Framework'
+---
+
+# Date Utilities
+
+The date utilities module provides functions for parsing, formatting, and manipulating dates, datetimes, and times. Built on top of `date-fns`, these utilities simplify common date operations. Located at `packages/loopar/core/global/date-utils.js`.
+
+## Overview
+
+All date utility functions support multiple input formats and provide consistent handling of invalid dates. They can:
+
+- Accept Date objects, date strings, or datetime strings
+- Format dates using custom format strings or the "DB" shorthand for database formats
+- Return null for invalid inputs instead of throwing errors
+- Use `date-fns` formatting tokens
+
+## Functions
+
+### getDate
+
+Parses and formats a date value.
+
+```javascript
+import { getDate } from 'loopar';
+
+// Get Date object
+const dateObj = getDate('2024-03-15');
+// Output: Date object
+
+// Format to database format
+const dbFormat = getDate('2024-03-15', 'DB');
+// Output: '2024-03-15'
+
+// Custom format
+const customFormat = getDate(new Date(), 'MM/DD/YYYY');
+// Output: '03/15/2024'
+
+// Handle null
+const nullResult = getDate(null);
+// Output: null
+```
+
+<ParamField path="date" type="Date | string" default="new Date()">
+  The date to parse. Can be:
+  - A Date object
+  - A date string (e.g., '2024-03-15')
+  - A datetime string (e.g., '2024-03-15 10:30:00')
+  - Omitted (defaults to current date)
+</ParamField>
+
+<ParamField path="format" type="string">
+  Optional format string. If provided, returns a formatted string:
+  - `"DB"` - Database format (yyyy-MM-dd)
+  - Custom format using date-fns tokens (e.g., 'MM/DD/YYYY', 'dd MMM yyyy')
+  - If omitted, returns a Date object
+</ParamField>
+
+<ResponseField name="return" type="Date | string | null">
+  - When `format` is omitted: Returns a Date object
+  - When `format` is provided: Returns a formatted date string
+  - Returns null if the date is null or invalid
+</ResponseField>
+
+#### Format Examples
+
+<Tabs>
+  <Tab title="Database Format">
+    ```javascript
+    // Using 'DB' shorthand
+    getDate('2024-03-15', 'DB');
+    // Output: '2024-03-15'
+    ```
+  </Tab>
+  
+  <Tab title="US Format">
+    ```javascript
+    getDate('2024-03-15', 'MM/DD/YYYY');
+    // Output: '03/15/2024'
+    ```
+  </Tab>
+  
+  <Tab title="European Format">
+    ```javascript
+    getDate('2024-03-15', 'DD/MM/YYYY');
+    // Output: '15/03/2024'
+    ```
+  </Tab>
+  
+  <Tab title="Long Format">
+    ```javascript
+    getDate('2024-03-15', 'MMMM do, yyyy');
+    // Output: 'March 15th, 2024'
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### getDateTime
+
+Parses and formats a datetime value.
+
+```javascript
+import { getDateTime } from 'loopar';
+
+// Get Date object
+const dateTimeObj = getDateTime('2024-03-15 14:30:00');
+// Output: Date object
+
+// Format to database format
+const dbFormat = getDateTime('2024-03-15 14:30:00', 'DB');
+// Output: '2024-03-15 14:30:00'
+
+// Custom format
+const customFormat = getDateTime(new Date(), 'MM/DD/YYYY HH:mm');
+// Output: '03/15/2024 14:30'
+
+// Handle invalid dates
+const invalidResult = getDateTime('invalid', 'DB');
+// Output: null
+```
+
+<ParamField path="date" type="Date | string" default="new Date()">
+  The datetime to parse. Can be:
+  - A Date object
+  - A datetime string (e.g., '2024-03-15 14:30:00')
+  - A date string (time will be 00:00:00)
+  - Omitted (defaults to current datetime)
+</ParamField>
+
+<ParamField path="format" type="string">
+  Optional format string. If provided, returns a formatted string:
+  - `"DB"` - Database format (yyyy-MM-dd HH:mm:ss)
+  - Custom format using date-fns tokens (e.g., 'MM/DD/YYYY HH:mm', 'yyyy-MM-dd\'T\'HH:mm:ss')
+  - If omitted, returns a Date object
+</ParamField>
+
+<ResponseField name="return" type="Date | string | null">
+  - When `format` is omitted: Returns a Date object
+  - When `format` is provided: Returns a formatted datetime string
+  - Returns null if the date is null or invalid
+</ResponseField>
+
+#### Format Examples
+
+<Tabs>
+  <Tab title="Database Format">
+    ```javascript
+    // Using 'DB' shorthand
+    getDateTime('2024-03-15 14:30:00', 'DB');
+    // Output: '2024-03-15 14:30:00'
+    ```
+  </Tab>
+  
+  <Tab title="12-Hour Format">
+    ```javascript
+    getDateTime('2024-03-15 14:30:00', 'MM/DD/YYYY hh:mm A');
+    // Output: '03/15/2024 02:30 PM'
+    ```
+  </Tab>
+  
+  <Tab title="ISO Format">
+    ```javascript
+    getDateTime('2024-03-15 14:30:00', "yyyy-MM-dd'T'HH:mm:ss");
+    // Output: '2024-03-15T14:30:00'
+    ```
+  </Tab>
+  
+  <Tab title="Custom Format">
+    ```javascript
+    getDateTime('2024-03-15 14:30:00', 'MMM do, yyyy \\at h:mm a');
+    // Output: 'Mar 15th, 2024 at 2:30 pm'
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### getTime
+
+Parses and formats a time value.
+
+```javascript
+import { getTime } from 'loopar';
+
+// Get Date object from time string
+const timeObj = getTime('14:30:00');
+// Output: Date object with today's date and time 14:30:00
+
+// Format to database format
+const dbFormat = getTime('14:30:00', 'DB');
+// Output: '14:30:00'
+
+// Parse time without seconds
+const noSeconds = getTime('14:30', 'HH:mm:ss');
+// Output: '14:30:00'
+
+// Custom format
+const customFormat = getTime('14:30:00', 'hh:mm A');
+// Output: '02:30 PM'
+
+// Handle invalid time
+const invalidResult = getTime('invalid');
+// Output: null
+```
+
+<ParamField path="date" type="Date | string" default="new Date()">
+  The time to parse. Can be:
+  - A Date object (time portion will be extracted)
+  - A time string (e.g., '14:30:00', '14:30')
+  - A datetime string (time portion will be extracted)
+  - Omitted (defaults to current time)
+</ParamField>
+
+<ParamField path="format" type="string">
+  Optional format string. If provided, returns a formatted string:
+  - `"DB"` - Database format (HH:mm:ss)
+  - Custom format using date-fns tokens (e.g., 'HH:mm', 'hh:mm A')
+  - If omitted, returns a Date object
+</ParamField>
+
+<ResponseField name="return" type="Date | string | null">
+  - When `format` is omitted: Returns a Date object with today's date and the specified time
+  - When `format` is provided: Returns a formatted time string
+  - Returns null if the time is null or invalid
+  - Note: Seconds are always set to "00" as the time widget doesn't control seconds yet
+</ResponseField>
+
+#### Time Parsing Behavior
+
+The `getTime` function has special parsing logic:
+
+1. **Time string input** (e.g., "14:30" or "14:30:00"):
+   - Creates a Date object with today's date
+   - Sets hours and minutes from the string
+   - Sets seconds to "00"
+
+2. **Date object input**:
+   - Extracts the time portion
+   - Sets seconds to "00"
+
+3. **Invalid input**:
+   - Returns null
+
+<Note>
+The seconds are automatically set to "00" because the Loopar time widget doesn't currently support seconds input. This ensures consistency across the framework.
+</Note>
+
+#### Format Examples
+
+<Tabs>
+  <Tab title="Database Format">
+    ```javascript
+    // Using 'DB' shorthand
+    getTime('14:30:00', 'DB');
+    // Output: '14:30:00'
+    ```
+  </Tab>
+  
+  <Tab title="24-Hour Format">
+    ```javascript
+    getTime('14:30:00', 'HH:mm');
+    // Output: '14:30'
+    ```
+  </Tab>
+  
+  <Tab title="12-Hour Format">
+    ```javascript
+    getTime('14:30:00', 'hh:mm A');
+    // Output: '02:30 PM'
+    ```
+  </Tab>
+  
+  <Tab title="Short 12-Hour">
+    ```javascript
+    getTime('14:30:00', 'h:mm a');
+    // Output: '2:30 pm'
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Common Use Cases
+
+### Saving to Database
+
+Use the "DB" format shorthand for database operations:
+
+```javascript
+import { getDate, getDateTime, getTime } from 'loopar';
+
+// Prepare data for database
+const userData = {
+  birthDate: getDate(userInput.birthDate, 'DB'),
+  // Output: '1990-05-15'
+  
+  createdAt: getDateTime(new Date(), 'DB'),
+  // Output: '2024-03-15 14:30:00'
+  
+  workStartTime: getTime(userInput.startTime, 'DB')
+  // Output: '09:00:00'
+};
+```
+
+---
+
+### Displaying to Users
+
+Format dates for user-friendly display:
+
+```javascript
+import { getDate, getDateTime } from 'loopar';
+
+// User-friendly formats
+const displayDate = getDate(record.birthDate, 'MMMM do, yyyy');
+// Output: 'May 15th, 1990'
+
+const displayDateTime = getDateTime(record.createdAt, 'MMM d, yyyy \\at h:mm a');
+// Output: 'Mar 15, 2024 at 2:30 pm'
+```
+
+---
+
+### Working with Form Inputs
+
+Parse user input and convert between formats:
+
+```javascript
+import { getDate, getDateTime, getTime } from 'loopar';
+
+// Parse various input formats
+const dateFromInput = getDate('03/15/2024');
+const dbFormat = getDate(dateFromInput, 'DB');
+// Output: '2024-03-15'
+
+// Time input handling
+const timeFromInput = getTime('2:30 PM', 'HH:mm:ss');
+// Parses 12-hour format to 24-hour database format
+// Output: '14:30:00'
+```
+
+---
+
+### Error Handling
+
+All functions return null for invalid inputs:
+
+```javascript
+import { getDate, getDateTime, getTime } from 'loopar';
+
+// Graceful handling of invalid dates
+const result = getDate('invalid-date', 'DB');
+if (result === null) {
+  console.log('Invalid date provided');
+}
+
+// Safe database operations
+const safeData = {
+  date: getDate(userInput, 'DB') || null,
+  datetime: getDateTime(userInput, 'DB') || null,
+  time: getTime(userInput, 'DB') || null
+};
+```
+
+---
+
+## Date-fns Format Tokens
+
+Common format tokens used with these functions:
+
+| Token | Description | Example |
+|-------|-------------|----------|
+| `yyyy` | 4-digit year | 2024 |
+| `yy` | 2-digit year | 24 |
+| `MMMM` | Full month name | March |
+| `MMM` | Short month name | Mar |
+| `MM` | 2-digit month | 03 |
+| `M` | Month number | 3 |
+| `dd` | 2-digit day | 15 |
+| `d` | Day number | 15 |
+| `do` | Day with ordinal | 15th |
+| `HH` | 24-hour (2 digits) | 14 |
+| `H` | 24-hour | 14 |
+| `hh` | 12-hour (2 digits) | 02 |
+| `h` | 12-hour | 2 |
+| `mm` | Minutes (2 digits) | 30 |
+| `ss` | Seconds (2 digits) | 00 |
+| `A` | Uppercase AM/PM | PM |
+| `a` | Lowercase am/pm | pm |
+
+<Info>
+For the complete list of format tokens, refer to the [date-fns documentation](https://date-fns.org/docs/format).
+</Info>
+
+---
+
+## Export
+
+All functions are exported as named exports:
+
+```javascript
+import { getDate, getDateTime, getTime } from 'loopar';
+```

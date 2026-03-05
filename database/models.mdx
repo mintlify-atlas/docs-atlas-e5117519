@@ -1,0 +1,335 @@
+---
+title: Models
+description: Define database models using BaseDocument and field types in Loopar
+---
+
+# Models
+
+Loopar uses a document-based model system built on top of Sequelize ORM. All models extend from `BaseDocument`, which provides a rich set of methods for data manipulation and validation.
+
+## BaseDocument Class
+
+The `BaseDocument` class is the foundation for all data models in Loopar:
+
+```javascript packages/loopar/core/document/base-document.js
+import CoreDocument from './core-document.js';
+import { loopar } from '../loopar.js';
+import { Op } from '@sequelize/core';
+
+export default class BaseDocument extends CoreDocument {
+  constructor(props) {
+    super(props);
+  }
+
+  // Model methods...
+}
+```
+
+## Field Types
+
+Loopar provides a comprehensive set of field types defined in the `TYPES` object:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const TYPES = Object.freeze({
+  increments: 'increments',      // Auto-incrementing integer
+  integer: 'INTEGER',             // Integer
+  bigInteger: 'BIGINT',          // Big integer
+  float: 'FLOAT',                // Floating point
+  decimal: 'DECIMAL',            // Decimal with precision
+  double: 'DOUBLE',              // Double precision
+  smallint: 'SMALLINT',          // Small integer
+  tinyint: 'TINYINT',            // Tiny integer
+  string: 'STRING',              // VARCHAR(255)
+  text: 'TEXT',                  // Text field
+  mediumtext: 'TEXT.medium',     // Medium text
+  longtext: 'TEXT.long',         // Long text
+  uuid: 'UUID',                  // UUID
+  enum: 'ENUM',                  // Enumeration
+  boolean: 'BOOLEAN',            // Boolean
+  date: 'DATEONLY',              // Date only
+  dateTime: 'DATE',              // Date and time
+  time: 'TIME',                  // Time only
+  timestamp: 'DATE',             // Timestamp
+  timestamps: 'timestamps',       // Created/updated timestamps
+  binary: 'BLOB',                // Binary data
+  json: 'JSON',                  // JSON data
+  jsonb: 'JSONB',                // JSON binary (PostgreSQL)
+  geometry: 'GEOMETRY',          // Geometry type
+  point: 'GEOMETRY.POINT',       // Point geometry
+  multiPoint: 'GEOMETRY.MULTIPOINT' // Multi-point geometry
+});
+```
+
+## Form Elements
+
+Form elements define how fields are rendered and stored:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const elementsDefinition = {
+  [FORM_ELEMENT]: [
+    { element: "input", icon: "FormInput", type: TYPES.string },
+    { element: "password", icon: "Asterisk", type: TYPES.text },
+    { element: "date", icon: "Calendar", type: TYPES.date, format: 'YYYY-MM-DD' },
+    { element: "date_time", icon: "CalendarClock", type: TYPES.dateTime, format: 'YYYY-MM-DD HH:mm:ss' },
+    { element: "time", icon: "Clock10", type: TYPES.time, format: 'HH:mm:ss' },
+    { element: "currency", icon: "Currency", type: TYPES.decimal },
+    { element: "integer", icon: "fa-duotone fa-input-numeric", type: TYPES.integer },
+    { element: "decimal", icon: "fa fa-00", type: TYPES.decimal },
+    { element: "select", icon: "ChevronDown", type: TYPES.text },
+    { element: "textarea", icon: "FileText", type: TYPES.longtext },
+    { element: "text_editor", icon: "TextCursorInput", type: TYPES.longtext, clientOnly: true },
+    { element: "checkbox", icon: "CheckSquare", type: TYPES.integer },
+    { element: "switch", icon: "ToggleLeft", type: TYPES.integer },
+    { element: "id", icon: "BookKey", type: TYPES.increments },
+    { element: "file_input", icon: "FileInput", type: TYPES.longtext },
+    { element: "image_input", icon: "FileImage", type: TYPES.longtext },
+    { element: "color_picker", icon: "Palette", type: TYPES.text },
+    { element: "radio_group", icon: "Circle", type: TYPES.text }
+  ]
+}
+```
+
+## Creating a Model
+
+Models are created by defining an Entity with a document structure:
+
+```javascript
+// Example: User model structure
+const userDocStructure = [
+  {
+    element: "row",
+    elements: [
+      {
+        element: "col",
+        elements: [
+          {
+            element: "input",
+            data: {
+              name: "name",
+              label: "Full Name",
+              required: true
+            }
+          },
+          {
+            element: "input",
+            data: {
+              name: "email",
+              label: "Email",
+              format: "email",
+              required: true,
+              unique: true
+            }
+          },
+          {
+            element: "password",
+            data: {
+              name: "password",
+              label: "Password",
+              required: true
+            }
+          },
+          {
+            element: "switch",
+            data: {
+              name: "disabled",
+              label: "Disabled",
+              default_value: 0
+            }
+          },
+          {
+            element: "date_time",
+            data: {
+              name: "created_at",
+              label: "Created At",
+              set_only_time: true
+            }
+          }
+        ]
+      }
+    ]
+  }
+];
+```
+
+## Field Properties
+
+<ParamField path="name" type="string" required>
+  Field name (must be unique within the model)
+</ParamField>
+
+<ParamField path="label" type="string" required>
+  Human-readable field label
+</ParamField>
+
+<ParamField path="element" type="string" required>
+  Field element type (input, select, textarea, etc.)
+</ParamField>
+
+<ParamField path="required" type="boolean">
+  Whether the field is required (default: false)
+</ParamField>
+
+<ParamField path="unique" type="boolean">
+  Whether the field value must be unique (default: false)
+</ParamField>
+
+<ParamField path="default_value" type="any">
+  Default value for the field
+</ParamField>
+
+<ParamField path="format" type="string">
+  Input format (email, url, phone, etc.)
+</ParamField>
+
+<ParamField path="length" type="number">
+  Maximum length for string fields
+</ParamField>
+
+<ParamField path="precision" type="number">
+  Precision for decimal fields (default: 10)
+</ParamField>
+
+<ParamField path="scale" type="number">
+  Scale for decimal fields (default: 2)
+</ParamField>
+
+<ParamField path="index" type="boolean">
+  Create an index on this field (default: false)
+</ParamField>
+
+## Working with Models
+
+### Creating a New Document
+
+```javascript
+// Create a new User document
+const user = await loopar.newDocument('User', {
+  name: 'John Doe',
+  email: 'john@example.com',
+  password: 'securePassword123'
+});
+
+// Save to database
+await user.save();
+```
+
+### Getting a Document
+
+```javascript
+// Get a User by name
+const user = await loopar.getDocument('User', 'john@example.com');
+
+// Access field values
+console.log(user.name);     // "John Doe"
+console.log(user.email);    // "john@example.com"
+console.log(user.disabled); // 0
+```
+
+### Updating a Document
+
+```javascript
+// Get the document
+const user = await loopar.getDocument('User', 'john@example.com');
+
+// Update fields
+user.name = 'John Smith';
+user.disabled = 1;
+
+// Save changes
+await user.save();
+```
+
+### Deleting a Document
+
+```javascript
+// Soft delete (default)
+await loopar.deleteDocument('User', 'john@example.com');
+
+// Hard delete with force option
+await loopar.deleteDocument('User', 'john@example.com', { 
+  sofDelete: false,
+  force: true 
+});
+```
+
+## Field Validation
+
+Loopar automatically validates fields based on their type and properties:
+
+```javascript packages/loopar/core/global/element-definition.js
+class DataInterface {
+  isEmail() {
+    var regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return {
+      valid: regex.test(this.value),
+      message: 'Invalid email address'
+    }
+  }
+
+  validatorRequired() {
+    const required = [true, 'true', 1, '1'].includes(this.data.required);
+    return {
+      valid: !required || !(typeof this.value == "undefined" || 
+             (["null", "undefined"].includes(this.value) || 
+             (this.value || "").toString().length === 0)),
+      message: `${this.__label()} is required`
+    }
+  }
+}
+```
+
+## Reserved Field Names
+
+<Warning>
+  The following field names are reserved and automatically added to all models:
+  - `id` - Auto-incrementing primary key
+  - `name` - Document name (unique identifier)
+  - `__document_status__` - Document status (Active/Deleted)
+</Warning>
+
+## Custom Model Classes
+
+You can extend `BaseDocument` to add custom methods:
+
+```javascript
+import BaseDocument from '@loopar/core/document/base-document.js';
+
+export default class User extends BaseDocument {
+  constructor(props) {
+    super(props);
+  }
+
+  // Custom method
+  async sendWelcomeEmail() {
+    // Send welcome email logic
+    console.log(`Sending welcome email to ${this.email}`);
+  }
+
+  // Override onLoad hook
+  async onLoad() {
+    // Custom logic when document is loaded
+    console.log(`User ${this.name} loaded`);
+  }
+
+  // Validation hook
+  async validate() {
+    await super.validate();
+    
+    // Custom validation
+    if (this.email && !this.email.includes('@')) {
+      loopar.throw('Invalid email format');
+    }
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Queries" icon="magnifying-glass" href="/database/queries">
+    Learn how to query data
+  </Card>
+  <Card title="Migrations" icon="arrow-right-arrow-left" href="/database/migrations">
+    Manage schema changes
+  </Card>
+</CardGroup>

@@ -1,0 +1,698 @@
+---
+title: 'File Manager'
+description: 'File management utilities for handling uploads, file operations, icons, type detection, and media processing in Loopar applications'
+---
+
+## Overview
+
+The File Manager provides two complementary classes for file operations in Loopar Framework:
+
+1. **FileManage** - Server-side file system operations (create, delete, import)
+2. **FileManager** - File type detection, icon mapping, and media handling
+
+## Import
+
+```javascript
+import { fileManage, fileManager } from 'loopar';
+```
+
+---
+
+# FileManage Class
+
+Server-side file system operations for creating files, folders, and managing configuration.
+
+## File Operations
+
+### makeFile(destiny, name, content, ext, replace)
+
+Creates a file at the specified location.
+
+<ParamField path="destiny" type="string" required>
+  Destination directory path (relative to pathRoot)
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  File name (without extension)
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  File content to write
+</ParamField>
+
+<ParamField path="ext" type="string" default="js">
+  File extension
+</ParamField>
+
+<ParamField path="replace" type="boolean" default="false">
+  Whether to replace existing file
+</ParamField>
+
+```javascript
+await fileManage.makeFile(
+  'apps/my-app/controllers',
+  'my-controller',
+  'export default class MyController {}',
+  'js',
+  false
+);
+```
+
+### existFile(fileRoute)
+
+Checks if a file exists asynchronously.
+
+<ParamField path="fileRoute" type="string" required>
+  File path (relative to pathRoot or absolute with './')
+</ParamField>
+
+```javascript
+const exists = await fileManage.existFile('apps/my-app/config.json');
+if (exists) {
+  console.log('File exists');
+}
+```
+
+### existFileSync(fileRoute)
+
+Checks if a file exists synchronously.
+
+<ParamField path="fileRoute" type="string" required>
+  File path
+</ParamField>
+
+```javascript
+if (fileManage.existFileSync('./package.json')) {
+  console.log('Package.json found');
+}
+```
+
+### existFolder(folderRoute)
+
+Checks if a folder exists.
+
+<ParamField path="folderRoute" type="string" required>
+  Folder path (relative to pathRoot)
+</ParamField>
+
+```javascript
+const exists = await fileManage.existFolder('apps/my-app');
+```
+
+## Folder Operations
+
+### makeFolder(...args)
+
+Creates a folder with recursive directory creation.
+
+<ParamField path="args" type="...string" required>
+  Path segments to create
+</ParamField>
+
+```javascript
+await fileManage.makeFolder('apps', 'my-app', 'modules', 'core');
+// Creates: {pathRoot}/apps/my-app/modules/core
+```
+
+### deleteFolder(destiny, name)
+
+Deletes a folder recursively.
+
+<ParamField path="destiny" type="string" required>
+  Parent directory path
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Folder name to delete
+</ParamField>
+
+```javascript
+await fileManage.deleteFolder('apps', 'old-app');
+```
+
+## Class Generation
+
+### makeClass(destiny, name, options, importerType, ext)
+
+Generates a JavaScript/TypeScript class file.
+
+<ParamField path="destiny" type="string" required>
+  Destination directory
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Class name
+</ParamField>
+
+<ParamField path="options" type="object">
+  Class generation options
+</ParamField>
+
+<ParamField path="options.IMPORTS" type="object">
+  Import statements (key: name, value: path)
+</ParamField>
+
+<ParamField path="options.EXTENDS" type="string">
+  Parent class name
+</ParamField>
+
+<ParamField path="importerType" type="string" default="">
+  'default' or '' for named imports
+</ParamField>
+
+<ParamField path="ext" type="string" default="js">
+  File extension
+</ParamField>
+
+```javascript
+await fileManage.makeClass(
+  'apps/my-app/controllers',
+  'MyController',
+  {
+    IMPORTS: {
+      BaseController: 'loopar',
+      loopar: 'loopar'
+    },
+    EXTENDS: 'BaseController'
+  },
+  '',
+  'js'
+);
+
+// Generates:
+// 'use strict';
+// 
+// import {BaseController} from 'loopar';
+// import {loopar} from 'loopar';
+// 
+// export default class MyController extends BaseController {
+//     constructor(props){
+//         super(props);
+//     }
+// }
+```
+
+## Module Import
+
+### importClass(fileRoute, onError)
+
+Dynamically imports a JavaScript class.
+
+<ParamField path="fileRoute" type="string" required>
+  Path to file to import
+</ParamField>
+
+<ParamField path="onError" type="function|object">
+  Error handler (function, class, or object)
+</ParamField>
+
+```javascript
+try {
+  const MyClass = await fileManage.importClass(
+    'apps/my-app/controllers/my-controller.js',
+    (error) => {
+      console.error('Failed to import:', error);
+      return DefaultController;
+    }
+  );
+  
+  const instance = new MyClass();
+} catch (error) {
+  console.error('Import error:', error);
+}
+```
+
+## Configuration Files
+
+### getConfigFile(fileName, path)
+
+Reads and parses a JSON configuration file.
+
+<ParamField path="fileName" type="string" required>
+  Configuration file name (without .json extension)
+</ParamField>
+
+<ParamField path="path" type="string">
+  Custom path (defaults to sites/{tenantId}/config)
+</ParamField>
+
+```javascript
+const dbConfig = fileManage.getConfigFile('db.config');
+console.log(dbConfig.host, dbConfig.database);
+
+const appConfig = fileManage.getConfigFile(
+  'installer',
+  'apps/my-app'
+);
+```
+
+### setConfigFile(fileName, data, path)
+
+Writes data to a JSON configuration file.
+
+<ParamField path="fileName" type="string" required>
+  Configuration file name
+</ParamField>
+
+<ParamField path="data" type="object" required>
+  Data to write (will be JSON stringified)
+</ParamField>
+
+<ParamField path="path" type="string">
+  Custom path
+</ParamField>
+
+```javascript
+await fileManage.setConfigFile('db.config', {
+  host: 'localhost',
+  port: 3306,
+  database: 'my_db',
+  username: 'root',
+  password: 'secret'
+});
+
+await fileManage.setConfigFile(
+  'settings',
+  { theme: 'dark', language: 'en' },
+  'apps/my-app/config'
+);
+```
+
+### getAppData(appName)
+
+Retrieves installer configuration for an app.
+
+<ParamField path="appName" type="string" required>
+  Application name
+</ParamField>
+
+```javascript
+const appData = fileManage.getAppData('my-app');
+console.log(appData.version, appData.dependencies);
+```
+
+## Naming Utilities
+
+### fileName(name, ext)
+
+Converts name to kebab-case filename with extension.
+
+<ParamField path="name" type="string" required>
+  Name to convert
+</ParamField>
+
+<ParamField path="ext" type="string" default="js">
+  File extension
+</ParamField>
+
+```javascript
+fileManage.fileName('MyController', 'js');
+// Returns: 'my-controller.js'
+
+fileManage.fileName('UserProfile', 'json');
+// Returns: 'user-profile.json'
+```
+
+### folderName(name)
+
+Converts name to kebab-case folder name.
+
+```javascript
+fileManage.folderName('MyApp');
+// Returns: 'my-app'
+```
+
+### className(name)
+
+Removes spaces from name for class naming.
+
+```javascript
+fileManage.className('My Controller');
+// Returns: 'MyController'
+```
+
+---
+
+# FileManager Class
+
+Client and server-side file type detection, icon mapping, and media processing.
+
+## File Type Detection
+
+### getFileType(file)
+
+Detects file type from file object or name.
+
+<ParamField path="file" type="object|string" required>
+  File object or filename
+</ParamField>
+
+```javascript
+const type = fileManager.getFileType({ 
+  name: 'document.pdf',
+  type: 'application/pdf'
+});
+// Returns: 'pdf'
+
+const type2 = fileManager.getFileType({
+  name: 'photo.jpg'
+});
+// Returns: 'image'
+```
+
+**Detected Types:**
+- `image`: JPG, PNG, GIF, SVG, WebP, etc.
+- `video`: MP4, AVI, WebM, MOV, etc.
+- `audio`: MP3, WAV, OGG, etc.
+- `pdf`: PDF files
+- `word`: DOC, DOCX
+- `excel`: XLS, XLSX
+- `powerpoint`: PPT, PPTX
+- `zip`: ZIP, RAR, 7Z
+- `code`: JS, HTML, CSS, Python, etc.
+- `text`: TXT, MD
+- `folder`: Directories
+- `default`: Unknown types
+
+### getTypeByExtension(ext)
+
+Returns file type for a given extension.
+
+<ParamField path="ext" type="string" required>
+  File extension (without dot)
+</ParamField>
+
+```javascript
+fileManager.getTypeByExtension('jpg');  // 'image'
+fileManager.getTypeByExtension('mp4');  // 'video'
+fileManager.getTypeByExtension('docx'); // 'word'
+fileManager.getTypeByExtension('xyz');  // 'default'
+```
+
+### getTypeFromURL(url)
+
+Detects file type from URL patterns.
+
+<ParamField path="url" type="string" required>
+  File URL
+</ParamField>
+
+```javascript
+fileManager.getTypeFromURL('https://example.com/photo.jpg');
+// Returns: 'image'
+
+fileManager.getTypeFromURL('https://res.cloudinary.com/demo/image/upload/sample.jpg');
+// Returns: 'image'
+```
+
+### getExtention(file)
+
+Extracts file extension from filename or URL.
+
+<ParamField path="file" type="string" required>
+  Filename or URL
+</ParamField>
+
+```javascript
+getExtention('document.pdf');     // 'pdf'
+getExtention('photo.JPG');        // 'jpg' (lowercase)
+getExtention('https://example.com/file.mp4'); // 'mp4'
+```
+
+## Icon Mapping
+
+### getIconByExtention(ext, type)
+
+Returns icon configuration for file type.
+
+<ParamField path="ext" type="string" required>
+  File extension
+</ParamField>
+
+<ParamField path="type" type="string">
+  File type (folder, image, etc.)
+</ParamField>
+
+```javascript
+const icon = fileManager.getIconByExtention('pdf', 'pdf');
+// Returns: { icon: 'fas fa-file-pdf', color: 'danger' }
+
+const folderIcon = fileManager.getIconByExtention('', 'folder');
+// Returns: { icon: 'fas fa-folder', color: 'yellow' }
+```
+
+### getFileIcon(type)
+
+Returns icon class for file type.
+
+<ParamField path="type" type="string" required>
+  File type
+</ParamField>
+
+```javascript
+fileManager.getFileIcon('image');  // 'fas fa-file-image'
+fileManager.getFileIcon('video');  // 'fas fa-file-video'
+fileManager.getFileIcon('pdf');    // 'fas fa-file-pdf'
+```
+
+## File Processing
+
+### getMappedFiles(files)
+
+Processes and normalizes file data for display.
+
+<ParamField path="files" type="array|string|object" required>
+  Files to process (various formats supported)
+</ParamField>
+
+```javascript
+// From file input
+const files = fileManager.getMappedFiles([
+  { name: 'photo.jpg', size: 1024000 },
+  { name: 'document.pdf', size: 2048000 }
+]);
+
+// Returns:
+[
+  {
+    name: 'photo.jpg',
+    type: 'image',
+    src: '/assets/public/images/photo.jpg',
+    extention: 'jpg',
+    previewSrc: '/assets/public/images/thumbnails/photo.jpg'
+  },
+  {
+    name: 'document.pdf',
+    type: 'pdf',
+    src: '/assets/public/images/document.pdf',
+    extention: 'pdf',
+    previewSrc: '/assets/public/images/document.pdf'
+  }
+]
+
+// From URL string
+const urlFiles = fileManager.getMappedFiles('https://example.com/photo.jpg');
+
+// From JSON string
+const jsonFiles = fileManager.getMappedFiles(
+  '[{"name":"file.jpg","size":1024}]'
+);
+```
+
+### getSrc(file, preview, ext)
+
+Generates source URL for a file.
+
+<ParamField path="file" type="object" required>
+  File object
+</ParamField>
+
+<ParamField path="preview" type="boolean" default="false">
+  Whether to get thumbnail URL
+</ParamField>
+
+<ParamField path="ext" type="string">
+  File extension
+</ParamField>
+
+```javascript
+const src = fileManager.getSrc(
+  { name: 'photo.jpg', src: null },
+  false
+);
+// Returns: '/assets/public/images/photo.jpg'
+
+const thumbnail = fileManager.getSrc(
+  { name: 'photo.jpg', src: null },
+  true,
+  'jpg'
+);
+// Returns: '/assets/public/images/thumbnails/photo.jpg'
+
+// SVG and ICO don't get thumbnails
+const icon = fileManager.getSrc(
+  { name: 'icon.svg' },
+  true,
+  'svg'
+);
+// Returns: '/assets/public/images/icon.svg' (no thumbnail path)
+```
+
+### getImage(data, field, avatar)
+
+Extracts image URL from document data.
+
+<ParamField path="data" type="object" required>
+  Document data object
+</ParamField>
+
+<ParamField path="field" type="string" required>
+  Field name containing image
+</ParamField>
+
+<ParamField path="avatar" type="string">
+  Default avatar name if no image
+</ParamField>
+
+```javascript
+const profilePic = fileManager.getImage(
+  { profile_picture: '[{"name":"avatar.jpg"}]' },
+  'profile_picture'
+);
+// Returns: '/assets/public/images/thumbnails/avatar.jpg'
+
+const defaultAvatar = fileManager.getImage(
+  { profile_picture: null },
+  'profile_picture',
+  'default-male.jpg'
+);
+// Returns: '/assets/public/images/avatars/default-male.jpg'
+```
+
+### getFileSize(bytes, decimals)
+
+Formats file size in human-readable format.
+
+<ParamField path="bytes" type="number" required>
+  File size in bytes
+</ParamField>
+
+<ParamField path="decimals" type="number" default="2">
+  Decimal places
+</ParamField>
+
+```javascript
+const [size, unit] = fileManager.getFileSize(1024);
+// Returns: [1.00, 'KB']
+
+const [size2, unit2] = fileManager.getFileSize(1048576);
+// Returns: [1.00, 'MB']
+
+const [size3, unit3] = fileManager.getFileSize(2500000, 1);
+// Returns: [2.4, 'MB']
+```
+
+## Utility Functions
+
+### isURL(str)
+
+Checks if string is a valid URL.
+
+<ParamField path="str" type="string" required>
+  String to check
+</ParamField>
+
+```javascript
+fileManager.isURL('https://example.com/file.jpg');  // true
+fileManager.isURL('example.com');                    // false
+fileManager.isURL('file.jpg');                       // false
+```
+
+## Complete Example
+
+```javascript
+import { fileManage, fileManager } from 'loopar';
+import { loopar } from 'loopar';
+
+// Create application structure
+await fileManage.makeFolder('apps', 'my-app', 'modules', 'core', 'controllers');
+
+// Generate controller class
+await fileManage.makeClass(
+  'apps/my-app/modules/core/controllers',
+  'MyController',
+  {
+    IMPORTS: { BaseController: 'loopar' },
+    EXTENDS: 'BaseController'
+  }
+);
+
+// Save configuration
+await fileManage.setConfigFile('app-settings', {
+  name: 'My App',
+  version: '1.0.0'
+});
+
+// Check if file exists
+if (await fileManage.existFile('apps/my-app/config.json')) {
+  const config = fileManage.getConfigFile('config', 'apps/my-app');
+  console.log('App config:', config);
+}
+
+// Process uploaded files
+const uploadedFiles = fileManager.getMappedFiles(request.files);
+
+for (const file of uploadedFiles) {
+  console.log(`File: ${file.name}`);
+  console.log(`Type: ${file.type}`);
+  console.log(`Icon: ${fileManager.getFileIcon(file.type)}`);
+  console.log(`Size: ${fileManager.getFileSize(file.size).join(' ')}`);
+}
+
+// Get user profile image
+const user = await loopar.getDocument('User', 'john@example.com');
+const userData = await user.values();
+const profileImage = fileManager.getImage(
+  userData,
+  'profile_picture',
+  'default-avatar.jpg'
+);
+
+console.log('Profile image URL:', profileImage);
+```
+
+## File Type Extensions Reference
+
+<Accordion title="Image Extensions" icon="image">
+  jpg, jpeg, png, gif, svg, bmp, ico, webp, tiff, tif, psd, ai, raw, indd, heif, heic, eps, svgz, jfif
+</Accordion>
+
+<Accordion title="Video Extensions" icon="video">
+  mp4, avi, mkv, webm, mov, flv, wmv, mpg, mpeg, 3gp, 3g2, m4v, h264, rmvb, vob, ts, m2ts, mts, divx, xvid
+</Accordion>
+
+<Accordion title="Audio Extensions" icon="music">
+  mp3, wav, ogg, m4a, wma, flac, aac, aiff, alac, pcm, dsd, awb, ac3, dts, mp2, mka, opus, ra, rm
+</Accordion>
+
+<Accordion title="Document Extensions" icon="file-text">
+  - **PDF**: pdf, ps
+  - **Word**: doc, docx
+  - **Excel**: xls, xlsx
+  - **PowerPoint**: ppt, pptx
+  - **Text**: txt, md
+</Accordion>
+
+<Accordion title="Code Extensions" icon="code">
+  html, css, js, php, py, java, cpp, c, cs, go, ts, tsx, jsx, rb, sh, bat, cmd
+</Accordion>
+
+<Accordion title="Archive Extensions" icon="file-zipper">
+  zip, rar, 7z, tar
+</Accordion>
+
+## Related
+
+- [Loopar Core](/api/loopar) - Main framework class
+- [BaseDocument](/api/base-document) - Document operations
+- [BaseController](/api/base-controller) - Controller for routing

@@ -1,0 +1,610 @@
+---
+title: Data Display Components
+description: Display and interact with data using tables, dialogs, carousels, and galleries
+---
+
+Data display components help you present information to users in organized, interactive ways. These components handle complex data structures, pagination, sorting, and user interactions.
+
+## Dialog
+
+The `dialog` component creates modal dialogs for displaying content, confirmations, alerts, and prompts.
+
+```jsx packages/loopar/src/components/dialog.jsx
+const MetaDialog = (props) => {
+  const [open, setOpen] = useState(props.open || false);
+  
+  const handleSetOpenClose = (open) => {
+    loopar.handleOpenCloseDialog(props.id, open);
+    if(open) props.onOpen && props.onOpen();
+    if(!open) props.onClose && props.onClose();
+  };
+
+  const sizes = {
+    sm: "md:min-w-[45%] lg:min-w-[40%] xl:min-w-[35%]",
+    md: "md:min-w-[60%] lg:min-w-[50%] xl:min-w-[45%]",
+    lg: "md:min-w-[75%] lg:min-w-[70%] xl:min-w-[60%]",
+    full: "min-w-[100%] min-h-[100%] max-w-[100%] max-h-[100%]",
+  };
+
+  return (
+    <DialogContextProvider>
+      <Dialog open={open} onOpenChange={handleSetOpenClose} key={props.id}>
+        <DialogContent className={`sm:max-w-md ${sizes[props.size || "sm"]} flex flex-col`}>
+          <DialogHeader>
+            <DialogTitle className="flex space-x-2">
+              {props.type && <Icon type={props.type} size={48} />}
+              <h2 className="text-2xl">{props.title}</h2>
+            </DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="overflow-auto max-h-[80vh]">
+            {content}
+          </DialogDescription>
+          {props.hasFooter !== false && (
+            <DialogFooter>
+              {(getButtons() || []).map((b) => (
+                <Button
+                  key={b.name}
+                  variant={b.variant || "primary"}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    b.dismiss && setDialogOpen(false);
+                    b.onClick();
+                  }}
+                >
+                  {b.content || b.text || b.label}
+                </Button>
+              ))}
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+    </DialogContextProvider>
+  );
+};
+```
+
+### Dialog Types
+
+<Tabs>
+  <Tab title="Alert">
+    ```javascript
+    import { Alert } from "@components/dialog";
+
+    <Alert
+      title="Warning"
+      message="This action cannot be undone."
+      type="alert"
+      ok={() => console.log("OK clicked")}
+    />
+    ```
+  </Tab>
+  <Tab title="Confirm">
+    ```javascript
+    import { Confirm } from "@components/dialog";
+
+    <Confirm
+      title="Delete Item"
+      message="Are you sure you want to delete this item?"
+      type="confirm"
+      ok={() => deleteItem()}
+      cancel={() => console.log("Cancelled")}
+    />
+    ```
+  </Tab>
+  <Tab title="Prompt">
+    ```javascript
+    import { Prompt } from "@components/dialog";
+
+    <Prompt
+      title="Enter Name"
+      label="Your Name"
+      placeholder="John Doe"
+      ok={(value) => console.log("Entered:", value)}
+      size="md"
+    />
+    ```
+  </Tab>
+</Tabs>
+
+### Properties
+
+<ParamField path="title" type="string" required>
+  Dialog title
+</ParamField>
+
+<ParamField path="message" type="string">
+  Dialog content (for simple text)
+</ParamField>
+
+<ParamField path="children" type="ReactNode">
+  Dialog content (for complex JSX)
+</ParamField>
+
+<ParamField path="type" type="string">
+  Dialog type: `alert`, `confirm`, `info`, `error`, `prompt`
+</ParamField>
+
+<ParamField path="size" type="string" default="sm">
+  Dialog size: `sm`, `md`, `lg`, `full`
+</ParamField>
+
+<ParamField path="open" type="boolean" default={false}>
+  Control dialog visibility
+</ParamField>
+
+<ParamField path="buttons" type="array">
+  Custom button configuration:
+  ```typescript
+  {
+    name: string,
+    text: string,
+    variant: "primary" | "secondary" | "destructive",
+    onClick: () => void,
+    dismiss?: boolean
+  }[]
+  ```
+</ParamField>
+
+<ParamField path="ok" type="function">
+  OK button callback
+</ParamField>
+
+<ParamField path="cancel" type="function">
+  Cancel button callback (for confirm dialogs)
+</ParamField>
+
+<ParamField path="hasFooter" type="boolean" default={true}>
+  Show/hide footer with buttons
+</ParamField>
+
+### Programmatic Usage
+
+```javascript
+import loopar from "loopar";
+
+// Simple alert
+loopar.alert("Operation completed successfully!");
+
+// Confirm dialog
+loopar.confirm("Delete this record?", () => {
+  // User confirmed
+  deleteRecord();
+});
+
+// Custom dialog
+loopar.dialog({
+  title: "Custom Dialog",
+  size: "lg",
+  content: <CustomComponent />,
+  buttons: [
+    {
+      name: "save",
+      text: "Save",
+      variant: "primary",
+      onClick: () => save()
+    },
+    {
+      name: "cancel",
+      text: "Cancel",
+      variant: "secondary",
+      onClick: () => console.log("Cancelled")
+    }
+  ]
+});
+```
+
+## Table / Form Table
+
+The `form_table` component creates editable tables with drag-and-drop row reordering, inline editing, and bulk operations.
+
+```jsx packages/loopar/src/components/form-table.jsx
+const FormTable = (props) => {
+  const { selectedRows, bulkRemove, baseColumns, selectorCol, rows } = useTable();
+  const { register, move, remove, append } = props;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
+  );
+
+  const onDragEnd = useCallback((event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      const oldIndex = rows.findIndex(f => f.id === active.id);
+      const newIndex = rows.findIndex(f => f.id === over.id);
+      move(oldIndex, newIndex);
+    }
+  }, [rows, move]);
+
+  return (
+    <div className="feed py-2">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext
+          items={rows.map(f => f.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <BaseTable
+            viewType={"List"}
+            hasPagination={false}
+            hasHeaderOptions={true}
+            columns={mappedColumns}
+            rowTemplate={SortableRow}
+          />
+        </SortableContext>
+      </DndContext>
+      <div className="flex flex-row gap-2">
+        {selectedRows.length > 0 && (
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={e => {
+              e.preventDefault();
+              bulkRemove(false);
+            }}
+          >
+            <Trash2Icon className="mr-1" size={16} />
+            Remove
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="primary"
+          onClick={handleAppend}
+        >
+          <PlusIcon className="mr-1" size={16} />
+          Add row
+        </Button>
+      </div>
+    </div>
+  )
+}
+```
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name for the table data
+</ParamField>
+
+<ParamField path="data.label" type="string">
+  Table label
+</ParamField>
+
+<ParamField path="__META__" type="object" required>
+  Entity metadata defining columns:
+  ```javascript
+  {
+    elements: [
+      {
+        element: "input",
+        data: {
+          name: "item_name",
+          label: "Item",
+          in_list_view: true
+        }
+      },
+      {
+        element: "input",
+        data: {
+          name: "quantity",
+          label: "Qty",
+          format: "int",
+          in_list_view: true
+        }
+      }
+    ]
+  }
+  ```
+</ParamField>
+
+### Features
+
+- **Drag & Drop**: Reorder rows by dragging
+- **Inline Editing**: Edit cells directly in the table
+- **Bulk Selection**: Select multiple rows for bulk operations
+- **Dynamic Rows**: Add/remove rows on the fly
+- **Validation**: Per-cell validation using field definitions
+
+### Example
+
+```json
+{
+  "element": "form_table",
+  "data": {
+    "name": "items",
+    "label": "Order Items"
+  }
+}
+```
+
+## Carrusel
+
+The `carrusel` component creates an image carousel with automatic sliding and navigation controls.
+
+```jsx packages/loopar/src/components/carrusel.jsx
+export default function Carrusel(props){
+  const { designerMode, updateElements } = useDesigner();
+  
+  const data = props.data || {};
+  const defaultElements = [
+    {
+      element: "banner",
+      data: {
+        key: `${data.key}-1`,
+        label: "Slider 1..",
+        text: "Slide 1..",
+        color_overlay: "rgba(0,0,0,0.3)",
+        background_image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80"
+      },
+    },
+    {
+      element: "banner",
+      data: {
+        key: `${data.key}-2`,
+        label: "Slider 2..",
+        text: "Slide 2..",
+        color_overlay: "rgba(0,0,0,0.3)",
+        background_image: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1920&q=80",
+      },
+    },
+  ];
+
+  return (
+    <Preassembled
+      {...props}
+      notDroppable={true} 
+      defaultElements={defaultElements}
+    >
+      <BaseCarrusel
+        {...props}
+        addSlide={addSlide}
+      />
+    </Preassembled>
+  );
+}
+```
+
+### Properties
+
+<ParamField path="data.key" type="string" required>
+  Unique identifier for the carousel
+</ParamField>
+
+<ParamField path="data.autoplay" type="boolean" default={true}>
+  Enable automatic sliding
+</ParamField>
+
+<ParamField path="data.interval" type="number" default={5000}>
+  Slide interval in milliseconds
+</ParamField>
+
+<ParamField path="data.show_controls" type="boolean" default={true}>
+  Show navigation arrows
+</ParamField>
+
+<ParamField path="data.show_indicators" type="boolean" default={true}>
+  Show slide indicators (dots)
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "carrusel",
+  "data": {
+    "key": "hero-carousel",
+    "autoplay": true,
+    "interval": 5000
+  },
+  "elements": [
+    {
+      "element": "banner",
+      "data": {
+        "key": "slide-1",
+        "label": "Welcome",
+        "text": "Slide 1 Description",
+        "background_image": "/images/slide1.jpg",
+        "color_overlay": "rgba(0,0,0,0.4)"
+      }
+    },
+    {
+      "element": "banner",
+      "data": {
+        "key": "slide-2",
+        "label": "Features",
+        "text": "Slide 2 Description",
+        "background_image": "/images/slide2.jpg",
+        "color_overlay": "rgba(0,0,0,0.4)"
+      }
+    }
+  ]
+}
+```
+
+## Gallery
+
+The `gallery` component displays a grid of images with lightbox functionality.
+
+### Properties
+
+<ParamField path="data.columns" type="number" default={3}>
+  Number of columns in the grid
+</ParamField>
+
+<ParamField path="data.gap" type="number" default={2}>
+  Gap between images (in rem)
+</ParamField>
+
+<ParamField path="data.images" type="array" required>
+  Array of image objects:
+  ```typescript
+  {
+    src: string,
+    alt?: string,
+    title?: string
+  }[]
+  ```
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "gallery",
+  "data": {
+    "key": "product-gallery",
+    "columns": 4,
+    "gap": 1,
+    "images": [
+      {
+        "src": "/images/product1.jpg",
+        "alt": "Product 1"
+      },
+      {
+        "src": "/images/product2.jpg",
+        "alt": "Product 2"
+      }
+    ]
+  }
+}
+```
+
+## Slider
+
+The `slider` component provides a range input for selecting numeric values.
+
+### Properties
+
+<ParamField path="data.name" type="string" required>
+  Field name
+</ParamField>
+
+<ParamField path="data.label" type="string" required>
+  Slider label
+</ParamField>
+
+<ParamField path="data.min" type="number" default={0}>
+  Minimum value
+</ParamField>
+
+<ParamField path="data.max" type="number" default={100}>
+  Maximum value
+</ParamField>
+
+<ParamField path="data.step" type="number" default={1}>
+  Step increment
+</ParamField>
+
+### Example
+
+```json
+{
+  "element": "slider",
+  "data": {
+    "name": "volume",
+    "label": "Volume",
+    "min": 0,
+    "max": 100,
+    "step": 5
+  }
+}
+```
+
+## Document History
+
+The `document_history` component displays a timeline of changes to a document.
+
+### Usage
+
+```jsx
+import DocumentHistory from "@components/document-history";
+
+<DocumentHistory
+  documentName="User"
+  documentId="user-123"
+/>
+```
+
+## No Data
+
+The `no_data` component displays a message when no data is available.
+
+### Usage
+
+```jsx
+import NoData from "@components/no-data";
+
+<NoData
+  message="No records found"
+  icon="search"
+/>
+```
+
+## Table Context
+
+For advanced table usage, use the `TableProvider` and `useTable` hook:
+
+```javascript
+import { TableProvider, useTable } from "@components/table/TableContext";
+
+const MyTable = () => {
+  const { 
+    rows, 
+    selectedRows, 
+    selectRow, 
+    selectAll,
+    bulkRemove 
+  } = useTable();
+
+  return (
+    // Your table implementation
+  );
+};
+
+<TableProvider
+  initialDocument={Document}
+  docRef={docRef}
+  rows={data}
+>
+  <MyTable />
+</TableProvider>
+```
+
+## Best Practices
+
+<Card title="Performance" icon="rocket">
+  - Use pagination for large datasets
+  - Implement virtual scrolling for very long tables
+  - Lazy load images in galleries and carousels
+  - Debounce search and filter operations
+</Card>
+
+<Card title="Accessibility" icon="universal-access">
+  - Provide alt text for all images
+  - Ensure keyboard navigation works in tables and carousels
+  - Use ARIA labels for dialog buttons
+  - Maintain focus management in dialogs
+</Card>
+
+<Card title="User Experience" icon="user">
+  - Show loading states during data fetching
+  - Provide clear feedback for bulk operations
+  - Include empty states with helpful messages
+  - Enable undo for destructive operations
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Form Components" icon="input-text" href="/components/forms">
+    Collect data with form inputs
+  </Card>
+  <Card title="Custom Components" icon="code" href="/components/custom">
+    Build your own display components
+  </Card>
+</CardGroup>

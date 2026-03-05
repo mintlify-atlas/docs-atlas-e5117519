@@ -1,0 +1,496 @@
+---
+title: File Management
+description: Learn how to handle file uploads, media management, and file operations in Loopar
+---
+
+Loopar provides comprehensive file management capabilities for handling uploads, serving files, and managing media assets through two main utilities: `fileManage` and `fileManager`.
+
+## File Management Architecture
+
+Loopar has two distinct file management systems:
+
+1. **fileManage** (`packages/loopar/core/file-manage.js`) - Server-side file operations
+2. **fileManager** (`packages/loopar/core/global/file-manager.js`) - File metadata and UI helpers
+
+## Server-Side File Operations
+
+### Creating Files
+
+Create files programmatically:
+
+```javascript title="file-manage.js"
+import { fileManage, loopar } from "loopar";
+
+// Create a file
+await fileManage.makeFile(
+  'apps/my-app/config',  // destiny path
+  'settings',             // file name
+  JSON.stringify({ key: 'value' }),  // content
+  'json',                 // extension
+  false                   // replace if exists
+);
+```
+
+<Note>
+  The `makeFile` method automatically skips existing files for certain extensions like 'jsx', 'tsx', 'js', and 'sqlite' unless `replace` is true.
+</Note>
+
+### Creating Directories
+
+```javascript
+import { fileManage, loopar } from "loopar";
+
+// Create nested directories
+await fileManage.makeFolder('apps', 'my-app', 'modules', 'customer');
+
+// Delete a directory
+await fileManage.deleteFolder('apps', 'my-app', 'temp');
+```
+
+### Checking File Existence
+
+```javascript
+// Async check
+const exists = await fileManage.existFile('apps/my-app/config.json');
+
+if (exists) {
+  console.log('File exists');
+}
+
+// Synchronous check
+const existsSync = fileManage.existFileSync('apps/my-app/config.json');
+
+if (existsSync) {
+  console.log('File exists');
+}
+
+// Check folder existence
+const folderExists = await fileManage.existFolder('apps/my-app');
+```
+
+### Importing Classes Dynamically
+
+```javascript
+// Import a class from a file
+const MyClass = await fileManage.importClass(
+  'apps/my-app/installer.js',
+  (error) => {
+    console.error('Failed to import:', error);
+  }
+);
+
+if (MyClass) {
+  const instance = new MyClass({ data: 'value' });
+}
+```
+
+<Warning>
+  The `importClass` method returns the default export. Ensure your modules use `export default`.
+</Warning>
+
+### Creating Class Files
+
+Generate class files with proper structure:
+
+```javascript
+await fileManage.makeClass(
+  'apps/my-app/controllers',  // destiny
+  'CustomerController',        // name
+  {
+    IMPORTS: {
+      BaseController: 'loopar',
+      loopar: 'loopar'
+    },
+    EXTENDS: 'BaseController'
+  },
+  'default',  // importer_type
+  'js'        // extension
+);
+```
+
+This generates:
+
+```javascript title="customer-controller.js"
+'use strict';
+
+import BaseController from 'loopar';
+import loopar from 'loopar';
+
+export default class CustomerController extends BaseController {
+  constructor(props){
+    super(props);
+  }
+}
+```
+
+## Configuration Files
+
+### Reading Configuration
+
+```javascript
+// Get config file from tenant directory
+const config = fileManage.getConfigFile('settings', 'sites/my-tenant/config');
+
+if (config.apiKey) {
+  console.log('API Key:', config.apiKey);
+}
+
+// Get app data
+const appData = fileManage.getAppData('my-app');
+```
+
+### Writing Configuration
+
+```javascript
+// Save config file
+await fileManage.setConfigFile('settings', {
+  apiKey: 'abc123',
+  apiSecret: 'xyz789',
+  environment: 'production'
+}, 'sites/my-tenant/config');
+```
+
+## File Naming Utilities
+
+Convert between naming conventions:
+
+```javascript
+import { fileManage } from "loopar";
+
+// Entity name to file name (kebab-case)
+fileManage.fileName('CustomerOrder');     // "customer-order.js"
+fileManage.fileName('AI Model', 'json');  // "ai-model.json"
+
+// Entity name to folder name
+fileManage.folderName('CustomerOrder');   // "customer-order"
+
+// Clean class name (remove spaces)
+fileManage.className('Customer Order');   // "CustomerOrder"
+```
+
+## Client-Side File Manager
+
+The `fileManager` utility provides file type detection and metadata management.
+
+### File Type Detection
+
+```javascript title="file-manager.js"
+import fileManager from "loopar";
+
+// Get file extension
+const ext = getExtention('document.pdf');  // "pdf"
+const ext2 = getExtention('photo.jpg');    // "jpg"
+
+// Get file type
+const type = fileManager.getFileType({
+  name: 'document.pdf',
+  type: 'application/pdf'
+});  // "pdf"
+
+const imageType = fileManager.getFileType({
+  name: 'photo.jpg'
+});  // "image"
+
+// Get type by extension
+const typeByExt = fileManager.getTypeByExtension('mp4');  // "video"
+```
+
+### Supported File Types
+
+Loopar recognizes these file categories:
+
+```javascript
+const fileExtensions = {
+  image: ['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp', 'ico', 'webp', 'tiff'],
+  video: ['mp4', 'avi', 'mkv', 'webm', 'mov', 'flv', 'wmv'],
+  audio: ['mp3', 'wav', 'ogg', 'm4a', 'wma', 'flac', 'aac'],
+  pdf: ['pdf', 'ps'],
+  word: ['doc', 'docx'],
+  excel: ['xls', 'xlsx'],
+  powerpoint: ['ppt', 'pptx'],
+  zip: ['zip', 'rar', '7z', 'tar'],
+  code: ['html', 'css', 'js', 'php', 'py', 'java', 'cpp', 'ts', 'jsx'],
+  text: ['txt', 'md'],
+  application: ['exe', 'msi', 'apk', 'dmg', 'iso', 'bin', 'jar']
+};
+```
+
+### File Icons
+
+Get icons for file types:
+
+```javascript
+// Get icon by extension
+const icon = fileManager.getIconByExtention('pdf', 'file');
+// Returns: { icon: 'fas fa-file-pdf', color: 'danger' }
+
+// Get icon by type
+const folderIcon = fileManager.getIconByExtention('', 'folder');
+// Returns: { icon: 'fas fa-folder', color: 'yellow' }
+
+// Get just the icon class
+const iconClass = fileManager.getFileIcon('image');
+// Returns: 'fas fa-file-image'
+```
+
+### File Size Formatting
+
+```javascript
+// Format bytes to human-readable size
+const [size, unit] = fileManager.getFileSize(1048576);  // [1, "MB"]
+const [size2, unit2] = fileManager.getFileSize(2048);   // [2, "KB"]
+const [size3, unit3] = fileManager.getFileSize(500);    // [500, "Bytes"]
+```
+
+### Mapping Files
+
+Prepare files for display:
+
+```javascript
+// Map file objects
+const files = fileManager.getMappedFiles([
+  { name: 'photo.jpg', size: 102400 },
+  { name: 'document.pdf', size: 204800 }
+]);
+
+// Each file now has:
+// - type: detected file type
+// - src: file source URL
+// - extention: file extension
+// - previewSrc: thumbnail URL for images
+
+console.log(files[0]);
+// {
+//   name: 'photo.jpg',
+//   size: 102400,
+//   type: 'image',
+//   src: '/assets/public/images/photo.jpg',
+//   extention: 'jpg',
+//   previewSrc: '/assets/public/images/thumbnails/photo.jpg'
+// }
+```
+
+### Get Image Helper
+
+```javascript
+// Get image from document data
+const imageSrc = fileManager.getImage(
+  documentData,   // document data object
+  'profile_pic',  // field name
+  'default.png'   // fallback avatar
+);
+
+// Returns preview URL or fallback
+```
+
+## File Uploads in Controllers
+
+### Serving Private Files
+
+```javascript title="core-controller.js"
+import { CoreController, loopar } from "loopar";
+
+export default class MyController extends CoreController {
+  async servePrivateFile(file) {
+    await this.beforeAction();
+
+    const document = await loopar.newDocument("File Manager", {
+      name: file
+    });
+
+    const privateFile = await document.getPrivateFile();
+    
+    if (!privateFile) {
+      return await this.notFound({
+        code: 404,
+        title: "Source not found",
+        description: `The source ${file} not found.`,
+      });
+    }
+    
+    if (privateFile.error) {
+      return await this.notFound({
+        code: 403,
+        title: "Access Denied",
+        description: privateFile.error,
+      });
+    }
+    
+    if (privateFile.path) {
+      const filePath = loopar.makePath(loopar.pathRoot, privateFile.path);
+      // Serve file...
+    }
+
+    return await this.render(document);
+  }
+}
+```
+
+## URL Detection
+
+```javascript
+// Check if string is URL
+const isUrl = fileManager.isURL('https://example.com/image.jpg');  // true
+const isNotUrl = fileManager.isURL('just-a-filename.jpg');          // false
+
+// Get type from URL
+const urlType = fileManager.getTypeFromURL('https://example.com/video.mp4');
+// Returns: "video"
+
+// Cloudinary support
+const cloudType = fileManager.getTypeFromURL(
+  'https://res.cloudinary.com/demo/image/upload/sample.jpg'
+);
+// Returns: "image"
+```
+
+## File Management in Documents
+
+Use file management in your document classes:
+
+```javascript title="my-document.js"
+import { loopar, fileManage, BaseDocument } from "loopar";
+
+export default class MyDocument extends BaseDocument {
+  async afterSave() {
+    // Create a config file after saving
+    await fileManage.setConfigFile(
+      this.name,
+      await this.values(),
+      `apps/${this.app_name}/data`
+    );
+  }
+
+  async beforeDelete() {
+    // Check if files exist
+    const configPath = `apps/${this.app_name}/data/${this.name}.json`;
+    
+    if (await fileManage.existFile(configPath)) {
+      // Delete associated files
+      console.log('Cleaning up files...');
+    }
+  }
+}
+```
+
+## Working with Installer Files
+
+Access installer configuration:
+
+```javascript title="installer.js"
+import { loopar, fileManage } from "loopar";
+import BaseDocument from "../../core/document/base-document.js";
+
+export default class Installer extends BaseDocument {
+  async getDocumentData(document, root) {
+    return await fileManage.getConfigFile(document, root);
+  }
+
+  async installData(reinstall = false) {
+    const moduleRoute = loopar.makePath('apps', this.app_name);
+    const appData = await fileManage.getConfigFile('installer', moduleRoute);
+
+    for (const e of Object.keys(appData.documents)) {
+      const ent = appData.documents[e];
+      const [constructor, name] = e.split(':');
+      
+      if (ent.root) {
+        const entityData = await this.getDocumentData(name, ent.root);
+        if (entityData) {
+          const doc = await loopar.newDocument(constructor, entityData);
+          await doc.save({ validate: false });
+        }
+      }
+    }
+  }
+}
+```
+
+## Best Practices
+
+<Steps>
+
+### Use Async Methods
+
+Prefer async file operations to avoid blocking:
+
+```javascript
+// Good
+const exists = await fileManage.existFile('path/to/file');
+
+// Avoid (use only when necessary)
+const existsSync = fileManage.existFileSync('path/to/file');
+```
+
+### Handle Errors Gracefully
+
+```javascript
+try {
+  const MyClass = await fileManage.importClass(
+    'apps/my-app/missing.js',
+    (error) => {
+      console.error('Import failed:', error);
+      return null;
+    }
+  );
+  
+  if (MyClass) {
+    // Use class
+  }
+} catch (error) {
+  console.error('Unexpected error:', error);
+}
+```
+
+### Validate File Types
+
+Always validate uploaded file types:
+
+```javascript
+const file = this.data.upload;
+const type = fileManager.getFileType(file);
+
+const allowedTypes = ['image', 'pdf', 'word'];
+
+if (!allowedTypes.includes(type)) {
+  return this.error('Invalid file type. Only images, PDFs, and Word documents are allowed.');
+}
+```
+
+### Use Naming Conventions
+
+Let Loopar handle file naming:
+
+```javascript
+// Good - Use fileManage utilities
+const fileName = fileManage.fileName('CustomerOrder', 'js');
+// "customer-order.js"
+
+// Avoid - Manual naming
+const fileName = 'customer_order.js';  // Wrong convention
+```
+
+</Steps>
+
+## File Storage Paths
+
+Loopar uses these standard paths:
+
+- **Public files**: `/assets/public/images/`
+- **Thumbnails**: `/assets/public/images/thumbnails/`
+- **App files**: `apps/{app-name}/`
+- **Config files**: `sites/{tenant-id}/config/`
+- **Data files**: `apps/{app-name}/data/`
+
+```javascript
+// Build paths correctly
+const publicPath = loopar.makePath('assets', 'public', 'images', 'logo.png');
+const configPath = loopar.makePath('sites', loopar.tenantId, 'config', 'settings.json');
+const appPath = loopar.makePath('apps', 'my-app', 'modules');
+```
+
+## Next Steps
+
+- [Creating Modules](/guides/creating-modules) - Build modules with file management
+- [Controllers Guide](/guides/controllers-guide) - Handle file uploads in controllers
+- [Theming](/guides/theming) - Customize your application's appearance

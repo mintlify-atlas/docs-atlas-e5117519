@@ -1,0 +1,255 @@
+---
+title: Components Overview
+description: Explore Loopar's 40+ built-in components for building dynamic applications
+---
+
+Loopar Framework provides a comprehensive library of 40+ built-in components organized into four main categories. These components are defined in the element system and can be used to build complex UIs without writing custom HTML.
+
+## Component Categories
+
+Components are organized into four main groups:
+
+<CardGroup cols={2}>
+  <Card title="Layout Components" icon="table-cells" href="/components/layout">
+    Structure your application with containers, rows, columns, cards, and more
+  </Card>
+  <Card title="Form Components" icon="input-text" href="/components/forms">
+    Collect user input with inputs, selects, checkboxes, date pickers, and more
+  </Card>
+  <Card title="Data Display" icon="chart-line" href="/components/data-display">
+    Display data with tables, dialogs, carousels, and galleries
+  </Card>
+  <Card title="Design Components" icon="palette" href="#design-components">
+    Enhance your UI with images, buttons, icons, and text blocks
+  </Card>
+</CardGroup>
+
+## Element Definition System
+
+All components are defined in the `elementsDefinition` object located at:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const elementsDefinition = {
+  [LAYOUT_ELEMENT]: [
+    { element: "section", icon: "GalleryVertical" },
+    { element: "div", icon: "Code" },
+    { element: "row", icon: "Columns2" },
+    { element: "col", icon: "Columns" },
+    { element: "card", icon: "PanelTop" },
+    { element: "banner", icon: "GalleryHorizontalEnd" },
+    // ... more layout elements
+  ],
+  [FORM_ELEMENT]: [
+    { element: "input", icon: "FormInput", type: TYPES.string },
+    { element: "select", icon: "ChevronDown", type: TYPES.text },
+    { element: "checkbox", icon: "CheckSquare", type: TYPES.integer },
+    { element: "date", icon: "Calendar", type: TYPES.date },
+    // ... more form elements
+  ],
+  [DESIGN_ELEMENT]: [
+    { element: "image", icon: "Image" },
+    { element: "button", icon: "MousePointer" },
+    { element: "icon", icon: "Boxes" },
+    // ... more design elements
+  ]
+}
+```
+
+## Using Components
+
+Components can be used in two ways:
+
+### 1. In JSON Metadata
+
+Define components using JSON structure:
+
+```json
+{
+  "element": "row",
+  "data": {
+    "layout": "[50, 50]",
+    "spacing": 2
+  },
+  "elements": [
+    {
+      "element": "col",
+      "elements": [
+        {
+          "element": "input",
+          "data": {
+            "label": "Name",
+            "name": "name",
+            "required": true
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 2. In JSX
+
+Import and use components directly:
+
+```jsx
+import { MetaComponent } from "@meta-component";
+
+<MetaComponent
+  component="input"
+  render={(Input) => (
+    <Input
+      data={{
+        label: "Email",
+        name: "email",
+        format: "email"
+      }}
+    />
+  )}
+/>
+```
+
+## Component Groups
+
+### Layout Components (15 elements)
+
+- `container` - Main container wrapper
+- `row` - Responsive grid row
+- `col` - Grid column
+- `card` - Card component with header/content/footer
+- `section` - Page section
+- `banner` - Hero banner with background
+- `tabs` - Tabbed interface
+- `panel` - Collapsible panel
+- `div` - Generic container
+- `fragment` - React fragment wrapper
+
+### Form Components (20+ elements)
+
+- `input` - Text input with multiple formats
+- `select` - Dropdown with local/remote data
+- `checkbox` - Checkbox input
+- `switch` - Toggle switch
+- `date` - Date picker
+- `date_time` - Date and time picker
+- `time` - Time picker
+- `textarea` - Multi-line text input
+- `text_editor` - Rich text editor
+- `file_input` - File upload
+- `color_picker` - Color selection
+- `radio_group` - Radio button group
+
+### Design Components
+
+- `button` - Action button with variants
+- `image` - Image display
+- `icon` - Icon component
+- `text_block` - Formatted text
+- `title` - Heading text
+- `subtitle` - Subheading text
+- `paragraph` - Paragraph text
+- `link` - Hyperlink
+- `carrusel` - Image carousel
+- `gallery` - Image gallery
+
+## Component Properties
+
+All components support common properties:
+
+<ParamField path="data" type="object" required>
+  Component configuration object containing:
+  - `name` - Field name for form elements
+  - `label` - Display label
+  - `key` - Unique identifier
+  - `class` - CSS classes
+</ParamField>
+
+<ParamField path="elements" type="array">
+  Child components (for container elements)
+</ParamField>
+
+<ParamField path="style" type="object">
+  Inline CSS styles
+</ParamField>
+
+## Element Dictionary
+
+Access element definitions programmatically:
+
+```javascript
+// Get element definition
+const definition = ELEMENT_DEFINITION('input');
+
+// Check if field is writable
+const isWritable = fieldIsWritable({ element: 'input' });
+
+// Get elements by type
+const stringFields = elementsNameByType('STRING');
+```
+
+## Meta Fields
+
+Components can define meta fields for the designer:
+
+```javascript packages/loopar/src/components/row.jsx
+Row.metaFields = () => {
+  return [
+    {
+      group: "layout",
+      elements: {
+        layout: {
+          element: SELECT,
+          data: {
+            label: "Columns",
+            options: gridLayouts.map(l => `[${l}]`),
+          },
+        },
+        spacing: {
+          element: SELECT,
+          data: {
+            label: "Gap",
+            options: [0, 1, 2, 3, 4, 5, 6],
+          },
+        },
+      },
+    },
+  ];
+};
+```
+
+## Component Base Class
+
+All components extend from the base Component class:
+
+```javascript packages/loopar/src/components/base/component.jsx
+export default class Component extends React.Component {
+  get droppable() {return true};
+  get draggable() {return true};
+
+  get identifier() {
+    const { key, id, name } = this.data;
+    return key ?? id ?? name ?? elementManage.getUniqueKey();
+  }
+
+  get data() {
+    return this.state.data || this.props.data || {};
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Layout Components" icon="table-cells" href="/components/layout">
+    Learn about containers, rows, columns, and cards
+  </Card>
+  <Card title="Form Components" icon="input-text" href="/components/forms">
+    Build forms with inputs, selects, and more
+  </Card>
+  <Card title="Data Display" icon="chart-line" href="/components/data-display">
+    Display data with tables and dialogs
+  </Card>
+  <Card title="Custom Components" icon="code" href="/components/custom">
+    Create your own custom components
+  </Card>
+</CardGroup>

@@ -1,0 +1,396 @@
+---
+title: Monitoring & Management
+description: Monitor and manage your Loopar applications with list, status, and logs commands
+---
+
+Loopar provides powerful monitoring commands to help you track and debug your running applications.
+
+## List Command
+
+Display a comprehensive table of all running Loopar sites.
+
+### Usage
+
+```bash
+loopar list
+```
+
+Shows a detailed table with information about all running processes.
+
+### Source Code
+
+```javascript bin/loopar-cli.js:91-93
+list() {
+  pm2Command(`node bin/loopar-status.js ${namespace}`);
+}
+```
+
+### Output
+
+The list command displays a table with the following columns:
+
+- **id** - PM2 process ID
+- **pid** - System process ID
+- **namespace** - Project namespace
+- **site** - Site name
+- **port** - HTTP server port
+- **hmr** - Hot module replacement port
+- **link** - Direct URL to access the site
+- **status** - Process status (online, stopped, errored, etc.)
+- **instances** - Number of running instances
+- **cpu** - CPU usage percentage
+- **mem** - Memory consumption in MB
+- **uptime** - Time since process started
+- **version** - Application version
+- **mode** - Execution mode (fork/cluster)
+
+### Example Output
+
+```bash
+$ loopar list
+┌────┬─────┬───────────┬──────────────┬──────┬──────┬─────────────────────────────┬────────┬───────────┬──────┬────────┬──────────┬───────────┬─────────┬──────┐
+│ id │ pid │ namespace │ site         │ port │ hmr  │ link                        │ status │ instances │ cpu  │ mem    │ uptime   │ namespace │ version │ mode │
+├────┼─────┼───────────┼──────────────┼──────┼──────┼─────────────────────────────┼────────┼───────────┼──────┼────────┼──────────┼───────────┼─────────┼──────┤
+│ 0  │ 1234│ my-app    │ dev          │ 3000 │ 3001 │ http://localhost:3000/desk  │ online │ 1         │ 0.5% │ 128 MB │ 2h 15m 3s│ my-app-   │ 2.0.6   │ fork │
+└────┴─────┴───────────┴──────────────┴──────┴──────┴─────────────────────────────┴────────┴───────────┴──────┴────────┴──────────┴───────────┴─────────┴──────┘
+```
+
+<Note>
+  The list command only shows processes marked with `IS_LOOPAR: true` in their environment variables, filtering out non-Loopar PM2 processes.
+</Note>
+
+## Status Command
+
+An alias for the `list` command that displays the same information.
+
+### Usage
+
+```bash
+loopar status
+```
+
+### Source Code
+
+```javascript bin/loopar-cli.js:95-97
+status() {
+  this.list();
+}
+```
+
+## Status Colors
+
+The status column uses color coding to quickly identify process states:
+
+```javascript bin/loopar-status.js:7-13
+const colorStatus = status => {
+  status = status || "";
+  if (status === "online") return chalk.green(status);
+  if (["launching", "starting", "stopping"].includes(status)) 
+    return chalk.yellow(status);
+  if (["stopped", "errored"].includes(status)) 
+    return chalk.red(status);
+  return status;
+};
+```
+
+- **Green** - `online` (running normally)
+- **Yellow** - `launching`, `starting`, `stopping` (transitional states)
+- **Red** - `stopped`, `errored` (not running or failed)
+
+## Instance Counting
+
+When running multiple instances of the same site, the table groups them:
+
+```javascript bin/loopar-status.js:57-64
+const instanceCount = {};
+finalList.forEach(proc => {
+  const isLoopar = proc.pm2_env.IS_LOOPAR ?? false;
+  if (isLoopar) {
+    const name = proc.name;
+    instanceCount[name] = (instanceCount[name] || 0) + 1;
+  }
+});
+```
+
+Multiple instances are displayed with a green count:
+
+```javascript bin/loopar-status.js:109-112
+const instancesDisplay = instances > 1 
+  ? chalk.green(`${instances}`) 
+  : chalk.gray(`${instances}`);
+```
+
+## Logs Command
+
+View real-time logs for debugging and monitoring your applications.
+
+### View All Logs
+
+```bash
+loopar logs
+```
+
+Displays logs from all running sites.
+
+### View Specific Site Logs
+
+```bash
+loopar logs <siteName>
+```
+
+Displays logs only from the specified site.
+
+<ParamField path="siteName" type="string">
+  The name of the site to view logs for
+</ParamField>
+
+### Source Code
+
+```javascript bin/loopar-cli.js:80-89
+logs(siteName) {
+  if (!siteName) {
+    console.log(chalk.cyan('Showing logs for all sites...\n'));
+    pm2Command(`pm2 logs all --namespace ${namespace}`);
+  } else {
+    const processName = getProcessName(siteName);
+    console.log(chalk.cyan(`Showing logs for ${siteName}...\n`));
+    pm2Command(`pm2 logs ${processName} --namespace ${namespace}`);
+  }
+}
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash All Logs
+loopar logs
+# Showing logs for all sites...
+# 
+# my-app-dev: Server started on port 3000
+# my-app-dev: Database connected
+# my-app-production: Request received: GET /api/users
+```
+
+```bash Specific Site
+loopar logs dev
+# Showing logs for dev...
+#
+# my-app-dev: [2026-03-05 10:23:45] INFO: Server started
+# my-app-dev: [2026-03-05 10:23:46] INFO: Listening on port 3000
+# my-app-dev: [2026-03-05 10:23:50] DEBUG: Hot reload enabled
+```
+
+</CodeGroup>
+
+### Log Features
+
+PM2 provides several log management features:
+
+- **Real-time streaming** - Logs appear as they're generated
+- **Color coding** - Different processes have different colors
+- **Timestamps** - Each log entry includes a timestamp
+- **Error highlighting** - Errors are displayed prominently
+- **Log rotation** - Automatic log file rotation to prevent disk space issues
+
+### Exiting Logs
+
+To stop viewing logs, press `Ctrl+C`.
+
+## Status Table Implementation
+
+The status table is generated by the `loopar-status.js` script:
+
+```javascript bin/loopar-status.js:68-89
+const table = new Table({
+  head: [
+    chalk.cyan("id"),
+    chalk.cyan("pid"),
+    chalk.cyan("namespace"),
+    chalk.cyan("site"),
+    chalk.cyan("port"),
+    chalk.cyan("hmr"),
+    chalk.cyan("link"),
+    chalk.cyan("status"),
+    chalk.cyan("instances"),
+    chalk.cyan("cpu"),
+    chalk.cyan("mem"),
+    chalk.cyan("uptime"),
+    chalk.cyan("namespace"),
+    chalk.cyan("version"),
+    chalk.cyan("mode")
+  ],
+  style: { border: [] },
+  colAligns: ["center", "center", "left", "center", "center", 
+              "left", "center", "center", "center", "right", 
+              "right", "center", "center"],
+  wordWrap: true
+});
+```
+
+### Wait Until Online
+
+The status script waits for processes to become online before displaying:
+
+```javascript bin/loopar-status.js:15-33
+const waitUntilOnline = (list, timeout = 100) => {
+  const start = Date.now();
+  return new Promise(resolve => {
+    const check = () => {
+      const allOnline = list.every(p => p.pm2_env.status === "online");
+      if (allOnline || Date.now() - start > timeout) {
+        resolve();
+      } else {
+        setTimeout(() => {
+          pm2.list((err, newList) => {
+            if (!err) list = newList;
+            check();
+          });
+        }, 200);
+      }
+    };
+    check();
+  });
+};
+```
+
+## Uptime Calculation
+
+Uptime is calculated and formatted for easy reading:
+
+```javascript bin/loopar-status.js:104-105
+const uptimeSec = proc.pm2_env.pm_uptime 
+  ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : 0;
+const uptime = `${Math.floor(uptimeSec / 3600)}h ${Math.floor((uptimeSec % 3600) / 60)}m ${uptimeSec % 60}s`;
+```
+
+## Memory Display
+
+Memory usage is converted from bytes to megabytes:
+
+```javascript bin/loopar-status.js:125
+chalk.white(Math.round((proc.monit.memory ?? 0) / 1024 / 1024) + " MB")
+```
+
+## Direct Access Links
+
+The status table includes direct links to access each site:
+
+```javascript bin/loopar-status.js:107
+const link = port !== "-" ? `http://localhost:${port}/desk` : "-";
+```
+
+You can click or copy these links to quickly access your running applications.
+
+## Monitoring Best Practices
+
+### Regular Status Checks
+
+```bash
+# Check status every few hours
+loopar status
+
+# Look for:
+# - High CPU usage
+# - Growing memory consumption
+# - Frequent restarts
+# - Error states
+```
+
+### Log Monitoring
+
+```bash
+# Monitor logs during development
+loopar logs dev
+
+# Check production logs periodically
+loopar logs production | grep ERROR
+
+# Save logs to file for analysis
+loopar logs production > production.log
+```
+
+### Performance Tracking
+
+```bash
+# Watch status in real-time (using watch command)
+watch -n 5 loopar status
+
+# Track memory growth over time
+loopar status | grep -A 1 "site"
+```
+
+## Troubleshooting
+
+### No Processes Showing
+
+If `loopar list` shows no processes:
+
+1. Start your application: `loopar dev` or `loopar start`
+2. Check PM2 directly: `pm2 list`
+3. Verify the namespace matches your project
+
+### High Memory Usage
+
+If memory usage is high:
+
+1. Check logs for memory leaks: `loopar logs <site>`
+2. Restart the process: `loopar restart <site>`
+3. Monitor after restart: `loopar status`
+
+### Process Not Responding
+
+If a process shows as online but doesn't respond:
+
+1. Check the logs: `loopar logs <site>`
+2. Try restarting: `loopar restart <site>`
+3. If unresponsive, delete and restart: `loopar delete <site> && loopar start <site>`
+
+## PM2 Integration
+
+All monitoring commands use PM2 under the hood:
+
+```javascript bin/loopar-status.js:35-38
+pm2.connect(async err => {
+  if (err) {
+    console.error("Can't connect to PM2:", err);
+    process.exit(2);
+  }
+  // ... monitoring logic
+});
+```
+
+### Additional PM2 Commands
+
+You can use PM2 commands directly for advanced monitoring:
+
+```bash
+# Detailed process info
+pm2 describe <process-name>
+
+# Monitor all processes
+pm2 monit
+
+# Process metrics
+pm2 metrics
+
+# Log rotation
+pm2 flush
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="server" href="/cli/start-stop">
+    Learn how to start, stop, and restart your applications
+  </Card>
+  <Card title="Development Mode" icon="code" href="/cli/dev">
+    Start developing with the dev command
+  </Card>
+  <Card title="PM2 Monitoring" icon="chart-line" href="https://pm2.keymetrics.io/docs/usage/monitoring/">
+    Advanced PM2 monitoring features
+  </Card>
+  <Card title="PM2 Logs" icon="file-lines" href="https://pm2.keymetrics.io/docs/usage/log-management/">
+    Learn more about PM2 log management
+  </Card>
+</CardGroup>

@@ -1,0 +1,164 @@
+---
+title: Database Overview
+description: Learn about Loopar's database integration with Sequelize ORM and supported database systems
+---
+
+# Database Overview
+
+Loopar uses **Sequelize ORM** (version 7) as its database abstraction layer, providing a robust and flexible way to interact with multiple database systems.
+
+## Supported Databases
+
+Loopar supports the following database systems out of the box:
+
+<CardGroup cols={3}>
+  <Card title="MySQL" icon="database">
+    Production-ready relational database
+  </Card>
+  <Card title="MariaDB" icon="database">
+    MySQL-compatible open source database
+  </Card>
+  <Card title="SQLite" icon="database">
+    Lightweight file-based database
+  </Card>
+</CardGroup>
+
+## Database Configuration
+
+Database configuration is stored in `db.config.json` and managed through the `loopar` instance:
+
+```javascript packages/loopar/core/loopar.js
+const loopar = new Loopar();
+
+// Get database configuration
+const dbConfig = loopar.getDbConfig();
+
+// Set database configuration
+await loopar.setDbConfig({
+  dialect: 'mysql',
+  host: 'localhost',
+  port: 3306,
+  database: 'loopar_db',
+  username: 'root',
+  password: 'password'
+});
+```
+
+### Configuration Options
+
+<ParamField path="dialect" type="string" required>
+  Database type: `mysql`, `mariadb`, or `sqlite`
+</ParamField>
+
+<ParamField path="host" type="string">
+  Database host (not required for SQLite)
+</ParamField>
+
+<ParamField path="port" type="number">
+  Database port (default: 3306 for MySQL/MariaDB)
+</ParamField>
+
+<ParamField path="database" type="string" required>
+  Database name
+</ParamField>
+
+<ParamField path="username" type="string">
+  Database username (not required for SQLite)
+</ParamField>
+
+<ParamField path="password" type="string">
+  Database password (not required for SQLite)
+</ParamField>
+
+## Database Initialization
+
+The database connection is initialized automatically when Loopar starts:
+
+```javascript packages/loopar/core/loopar.js
+export class Loopar extends Document {
+  constructor() {
+    super("Loopar");
+    this.db = new SequelizeORM();
+  }
+
+  async initialize() {
+    console.log(`......Initializing Loopar.......`);
+    
+    await this.buildGlobalEnvironment();
+    await this.loadConfig();
+   
+    // Initialize database connection
+    await this.db.initialize();
+    
+    await this.build();
+    await this.buildIcons();
+  }
+}
+```
+
+## Database Dependencies
+
+Loopar uses the following packages for database connectivity:
+
+```json packages/db-env/package.json
+{
+  "name": "db-env",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@sequelize/core": "7.0.0-alpha.47",
+    "@sequelize/mariadb": "7.0.0-alpha.47",
+    "@sequelize/mysql": "7.0.0-alpha.47",
+    "@sequelize/sqlite3": "7.0.0-alpha.47",
+    "sequelize": "v7.0.0-next.1"
+  }
+}
+```
+
+## Table Naming Convention
+
+All database tables in Loopar are prefixed with `tbl` by default:
+
+```javascript
+// Entity name: User
+// Table name: tblUser
+
+// Entity name: System Settings
+// Table name: tblSystem Settings
+```
+
+## Transactions
+
+Loopar supports database transactions for atomic operations:
+
+```javascript
+// Begin transaction
+await loopar.db.beginTransaction();
+
+try {
+  // Perform database operations
+  await loopar.db.insertRow('User', userData);
+  await loopar.db.updateRow('Profile', profileData, profileName);
+  
+  // Commit transaction
+  await loopar.db.endTransaction();
+} catch (error) {
+  // Rollback on error
+  await loopar.db.rollbackTransaction();
+  throw error;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Models" icon="cube" href="/database/models">
+    Learn how to define database models
+  </Card>
+  <Card title="Queries" icon="magnifying-glass" href="/database/queries">
+    Query data using the ORM
+  </Card>
+  <Card title="Migrations" icon="arrow-right-arrow-left" href="/database/migrations">
+    Manage schema changes
+  </Card>
+</CardGroup>

@@ -1,0 +1,362 @@
+---
+title: Process Control
+description: Manage Loopar application lifecycle with start, stop, restart, and delete commands
+---
+
+Loopar provides comprehensive process control commands to manage your application lifecycle in production environments.
+
+## Start Command
+
+Start your Loopar application in production mode.
+
+### Start All Sites
+
+```bash
+loopar start
+```
+
+Starts the core site and all configured sites in production mode.
+
+### Start Specific Site
+
+```bash
+loopar start <siteName>
+```
+
+Starts only the specified site.
+
+<ParamField path="siteName" type="string">
+  The name of the site to start (corresponds to the directory name in `sites/`)
+</ParamField>
+
+### Source Code
+
+```javascript bin/loopar-cli.js:37-45
+start(siteName) {
+  if (!siteName) {
+    console.log(chalk.cyan('Starting core site.'));
+    pm2Command(
+      `node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --silent && node bin/loopar-status.js --env production`
+    );
+  } else {
+    console.log(chalk.cyan(`Starting ${siteName}...`));
+    pm2Command(
+      `node bin/ensure-site.js && pm2 start bin/loopar.ecosystem.config.mjs --namespace ${namespace} --only ${siteName} --silent && node bin/loopar-status.js --env production`
+    );
+  }
+}
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Start All
+loopar start
+# Starting core site.
+# ✓ Sites started successfully
+```
+
+```bash Start Specific Site
+loopar start production
+# Starting production...
+# ✓ Site started successfully
+```
+
+</CodeGroup>
+
+<Note>
+  The start command ensures the site exists before starting and displays a status table after successful startup.
+</Note>
+
+## Stop Command
+
+Gracefully stop running Loopar processes.
+
+### Stop All Sites
+
+```bash
+loopar stop
+```
+
+Stops all running sites under the current project namespace.
+
+### Stop Specific Site
+
+```bash
+loopar stop <siteName>
+```
+
+Stops only the specified site.
+
+### Source Code
+
+```javascript bin/loopar-cli.js:47-56
+stop(siteName) {
+  if (!siteName) {
+    console.log(chalk.yellow('Stopping all sites...'));
+    pm2Command(`pm2 stop all --namespace ${namespace}`);
+  } else {
+    const processName = getProcessName(siteName);
+    console.log(chalk.yellow(`Stopping ${siteName}...`));
+    pm2Command(`pm2 stop ${processName} --namespace ${namespace}`);
+  }
+}
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Stop All
+loopar stop
+# Stopping all sites...
+# [PM2] Stopping all processes
+```
+
+```bash Stop Specific Site
+loopar stop production
+# Stopping production...
+# [PM2] Stopping process production
+```
+
+</CodeGroup>
+
+<Warning>
+  Stopping a site does not remove it from PM2. The process remains in PM2's process list and can be restarted. Use `delete` to completely remove a process.
+</Warning>
+
+## Restart Command
+
+Restart running processes with zero-downtime for configuration updates or code changes.
+
+### Restart All Sites
+
+```bash
+loopar restart
+```
+
+Restarts all sites under the current project namespace.
+
+### Restart Specific Site
+
+```bash
+loopar restart <siteName>
+```
+
+Restarts only the specified site.
+
+### Source Code
+
+```javascript bin/loopar-cli.js:58-67
+restart(siteName) {
+  if (!siteName) {
+    console.log(chalk.cyan('Restarting all sites...'));
+    pm2Command(`pm2 restart all --namespace ${namespace}`);
+  } else {
+    const processName = getProcessName(siteName);
+    console.log(chalk.cyan(`Restarting ${siteName}...`));
+    pm2Command(`pm2 restart ${processName} --namespace ${namespace}`);
+  }
+}
+```
+
+### When to Restart
+
+Restart your application when:
+
+- **Configuration Changes** - Updated `.env` files or settings
+- **Code Updates** - Deployed new code to production
+- **Dependency Updates** - Installed or updated npm packages
+- **Memory Leaks** - As a temporary fix while debugging
+- **Performance Issues** - To clear cached data and reset state
+
+### Examples
+
+<CodeGroup>
+
+```bash Restart All
+loopar restart
+# Restarting all sites...
+# [PM2] Restarting all processes
+```
+
+```bash Restart Specific Site
+loopar restart production
+# Restarting production...
+# [PM2] Restarting process production
+```
+
+</CodeGroup>
+
+<Note>
+  PM2 performs graceful restarts by default, ensuring no downtime during the restart process.
+</Note>
+
+## Delete Command
+
+Remove processes from PM2's process list. This is a destructive operation that cannot be undone.
+
+### Delete All Sites
+
+```bash
+loopar delete
+```
+
+Removes all sites from PM2 under the current project namespace.
+
+### Delete Specific Site
+
+```bash
+loopar delete <siteName>
+```
+
+Removes only the specified site from PM2.
+
+### Source Code
+
+```javascript bin/loopar-cli.js:69-78
+delete(siteName) {
+  if (!siteName) {
+    console.log(chalk.red('Deleting all sites from PM2...'));
+    pm2Command(`pm2 delete all --namespace ${namespace}`);
+  } else {
+    const processName = getProcessName(siteName);
+    console.log(chalk.red(`Deleting ${siteName} from PM2...`));
+    pm2Command(`pm2 delete ${processName} --namespace ${namespace}`);
+  }
+}
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Delete All
+loopar delete
+# Deleting all sites from PM2...
+# [PM2] Deleting all processes
+```
+
+```bash Delete Specific Site
+loopar delete staging
+# Deleting staging from PM2...
+# [PM2] Process staging deleted
+```
+
+</CodeGroup>
+
+<Warning>
+  The delete command removes the process from PM2's management but does not delete any files or data. Site directories in `sites/` remain intact.
+</Warning>
+
+### When to Delete
+
+Use delete when:
+
+- **Cleaning Up** - Removing old or unused sites
+- **Troubleshooting** - Clearing PM2 process list
+- **Namespace Conflicts** - Resolving process naming issues
+- **Fresh Start** - Before redeploying or reconfiguring
+
+## Process Naming
+
+Processes are named using the pattern:
+
+```javascript
+function getProcessName(siteName) {
+  return `${projectName}-${siteName}`;
+}
+```
+
+For example, in a project named `my-app`:
+- `loopar start dev` creates process `my-app-dev`
+- `loopar start production` creates process `my-app-production`
+
+## Best Practices
+
+### Development Workflow
+
+```bash
+# Start development
+loopar dev
+
+# Make changes...
+
+# Restart to apply changes
+loopar restart dev
+
+# View logs for debugging
+loopar logs dev
+
+# Stop when done
+loopar stop dev
+```
+
+### Production Deployment
+
+```bash
+# Deploy new code
+git pull origin main
+npm install
+
+# Restart to apply updates
+loopar restart production
+
+# Verify status
+loopar status
+
+# Monitor logs
+loopar logs production
+```
+
+### Clean Shutdown
+
+```bash
+# Stop all processes
+loopar stop
+
+# Remove from PM2
+loopar delete
+
+# Verify cleanup
+pm2 list
+```
+
+## Error Handling
+
+If a command fails, error messages are displayed in red:
+
+```javascript bin/loopar-cli.js:16-30
+function pm2Command(cmd, silent = false) {
+  try {
+    const result = execSync(cmd, { 
+      stdio: silent ? 'pipe' : 'inherit',
+      encoding: 'utf8'
+    });
+    return result;
+  } catch (err) {
+    if (!silent) {
+      console.error(chalk.red(`Error: ${err}`));
+    }
+    return null;
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="View Status" icon="chart-line" href="/cli/management#status">
+    Check the status of all running processes
+  </Card>
+  <Card title="Monitor Logs" icon="file-lines" href="/cli/management#logs">
+    View real-time logs for debugging and monitoring
+  </Card>
+  <Card title="Development Mode" icon="code" href="/cli/dev">
+    Learn about the dev command for local development
+  </Card>
+  <Card title="PM2 Commands" icon="terminal" href="https://pm2.keymetrics.io/docs/usage/quick-start/">
+    Explore advanced PM2 commands and features
+  </Card>
+</CardGroup>

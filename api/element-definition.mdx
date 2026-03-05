@@ -1,0 +1,747 @@
+---
+title: 'Element Definitions'
+description: 'Type definitions, constants, and metadata for Loopar UI elements and components'
+---
+
+# Element Definitions
+
+The element definition module provides type definitions, constants, and metadata for all UI elements in the Loopar Framework. It defines database column types, element groups, element properties, and validation interfaces. Located at `packages/loopar/core/global/element-definition.js`.
+
+## Database Types
+
+### TYPES
+
+Database column types using Sequelize DataTypes for compatibility.
+
+```javascript
+import { TYPES } from 'loopar';
+
+console.log(TYPES.string);    // 'STRING'
+console.log(TYPES.integer);   // 'INTEGER'
+console.log(TYPES.date);      // 'DATEONLY'
+console.log(TYPES.dateTime);  // 'DATE'
+```
+
+Available type constants:
+
+| Type | Value | Description |
+|------|-------|-------------|
+| `increments` | 'increments' | Auto-incrementing primary key |
+| `integer` | 'INTEGER' | Integer number |
+| `bigInteger` | 'BIGINT' | Large integer |
+| `float` | 'FLOAT' | Floating point number |
+| `decimal` | 'DECIMAL' | Decimal number |
+| `double` | 'DOUBLE' | Double precision number |
+| `smallint` | 'SMALLINT' | Small integer |
+| `tinyint` | 'TINYINT' | Tiny integer |
+| `string` | 'STRING' | VARCHAR(255) |
+| `text` | 'TEXT' | Text field |
+| `mediumtext` | 'TEXT.medium' | Medium text field |
+| `longtext` | 'TEXT.long' | Long text field |
+| `uuid` | 'UUID' | UUID field |
+| `enum` | 'ENUM' | Enumeration |
+| `boolean` | 'BOOLEAN' | Boolean value |
+| `date` | 'DATEONLY' | Date only (no time) |
+| `dateTime` | 'DATE' | Date with time |
+| `time` | 'TIME' | Time only |
+| `timestamp` | 'DATE' | Timestamp |
+| `timestamps` | 'timestamps' | Created/updated timestamps |
+| `binary` | 'BLOB' | Binary data |
+| `json` | 'JSON' | JSON data |
+| `jsonb` | 'JSONB' | JSON binary |
+| `geometry` | 'GEOMETRY' | Geometric data |
+| `point` | 'GEOMETRY.POINT' | Point geometry |
+| `multiPoint` | 'GEOMETRY.MULTIPOINT' | Multi-point geometry |
+
+---
+
+### inputType
+
+HTML input types mapping for form elements.
+
+```javascript
+import { inputType } from 'loopar';
+
+console.log(inputType.email);    // 'email'
+console.log(inputType.decimal);  // 'number'
+```
+
+Available mappings:
+
+| Key | HTML Type |
+|-----|----------|
+| `data` | text |
+| `text` | text |
+| `email` | email |
+| `decimal` | number |
+| `percent` | number |
+| `currency` | text |
+| `int` | number |
+| `long_int` | number |
+| `read_only` | text |
+
+---
+
+## Element Groups
+
+### ELEMENT_GROUPS
+
+Categorizes elements into functional groups.
+
+```javascript
+import { ELEMENT_GROUPS } from 'loopar';
+
+console.log(ELEMENT_GROUPS.LAYOUT_ELEMENT);  // 'layout'
+console.log(ELEMENT_GROUPS.DESIGN_ELEMENT);  // 'design'
+console.log(ELEMENT_GROUPS.FORM_ELEMENT);    // 'form'
+console.log(ELEMENT_GROUPS.HTML_ELEMENT);    // 'html'
+```
+
+| Group | Value | Description |
+|-------|-------|-------------|
+| `LAYOUT_ELEMENT` | 'layout' | Structural layout components |
+| `DESIGN_ELEMENT` | 'design' | Visual design elements |
+| `FORM_ELEMENT` | 'form' | Form input elements |
+| `HTML_ELEMENT` | 'html' | HTML elements |
+
+---
+
+## Element Definitions
+
+### elementsDefinition
+
+Complete element metadata organized by group.
+
+```javascript
+import { elementsDefinition, ELEMENT_GROUPS } from 'loopar';
+
+// Access layout elements
+const layoutElements = elementsDefinition[ELEMENT_GROUPS.LAYOUT_ELEMENT];
+// Returns array of layout element definitions
+
+// Access form elements
+const formElements = elementsDefinition[ELEMENT_GROUPS.FORM_ELEMENT];
+// Returns array of form element definitions
+```
+
+Each element definition includes:
+
+<ParamField path="element" type="string">
+  The element name (e.g., 'input', 'button', 'section')
+</ParamField>
+
+<ParamField path="icon" type="string">
+  Icon identifier for the element
+</ParamField>
+
+<ParamField path="type" type="string">
+  Database type from TYPES (for form elements)
+</ParamField>
+
+<ParamField path="format" type="string">
+  Default format string (for date/time elements)
+</ParamField>
+
+<ParamField path="show_in_design" type="boolean">
+  Whether to show in design mode
+</ParamField>
+
+<ParamField path="designerOnly" type="boolean">
+  Only available in designer mode
+</ParamField>
+
+<ParamField path="clientOnly" type="boolean">
+  Only rendered on client side
+</ParamField>
+
+#### Layout Elements
+
+<Tabs>
+  <Tab title="Common">
+    - `section` - Section container (GalleryVertical icon)
+    - `div` - Generic div container (Code icon)
+    - `row` - Row layout (Columns2 icon)
+    - `col` - Column layout (Columns icon)
+    - `card` - Card component (PanelTop icon)
+    - `container` - Container component (Dock icon)
+  </Tab>
+  
+  <Tab title="Specialized">
+    - `feature_card` - Feature card (PanelBoottom icon)
+    - `banner` - Banner component (GalleryHorizontalEnd icon)
+    - `banner_image` - Banner with image (ImagePlus icon)
+    - `tabs` - Tab container (AppWindow icon)
+    - `tab` - Individual tab (Table2 icon, hidden in design)
+    - `panel` - Panel component (PanelBottom icon)
+  </Tab>
+  
+  <Tab title="Advanced">
+    - `generic` - Generic element (Code icon)
+    - `menu_content` - Menu content (PanelRight icon)
+    - `fragment` - Fragment wrapper (Scan icon)
+  </Tab>
+</Tabs>
+
+#### Design Elements
+
+<Tabs>
+  <Tab title="Media">
+    - `image` - Image element (Image icon)
+    - `slider` - Slider component (SlidersHorizontal icon)
+    - `carrusel` - Carousel component (GalleryHorizontalEnd icon)
+    - `gallery` - Gallery component (ImagePlus icon)
+  </Tab>
+  
+  <Tab title="Text">
+    - `text_block` - Text block (AlignJustify icon)
+    - `text_block_icon` - Text with icon (Outdent icon)
+    - `title` - Heading 1 (Heading1 icon)
+    - `subtitle` - Heading 2 (Heading2 icon)
+    - `paragraph` - Paragraph text (Pilcrow icon)
+  </Tab>
+  
+  <Tab title="Interactive">
+    - `button` - Button element (MousePointer icon)
+    - `link` - Link element (MousePointerClick icon)
+    - `icon` - Icon element (Boxes icon)
+  </Tab>
+  
+  <Tab title="Advanced">
+    - `markdown` - Markdown renderer (BookOpenCheck icon, designer only)
+    - `html_block` - HTML block (Code icon, designer + client only)
+    - `direct-preview` - Direct preview (View icon)
+    - `direct-preview-iframe` - iFrame preview (View icon)
+    - `seo` - SEO metadata (Globe icon, designer only)
+    - `particles` - Particle effects (DotsHorizontal icon)
+    - `example_viewer` - Example viewer (Scan icon)
+  </Tab>
+  
+  <Tab title="Payment">
+    - `stripe` - Stripe integration (CreditCard icon)
+    - `stripe_embebed` - Embedded Stripe (CreditCard icon)
+  </Tab>
+</Tabs>
+
+#### Form Elements
+
+<Tabs>
+  <Tab title="Text Input">
+    - `input` - Text input (FormInput icon, STRING type)
+    - `password` - Password input (Asterisk icon, TEXT type)
+    - `textarea` - Text area (FileText icon, LONGTEXT type)
+    - `text_editor` - Rich text editor (TextCursorInput icon, LONGTEXT type, client only)
+    - `markdown_input` - Markdown input (BookOpenCheck icon, TEXT type, client only)
+  </Tab>
+  
+  <Tab title="Numbers">
+    - `integer` - Integer input (numeric icon, INTEGER type, hidden in design)
+    - `decimal` - Decimal input (00 icon, DECIMAL type, hidden in design)
+    - `currency` - Currency input (Currency icon, DECIMAL type, hidden in design)
+  </Tab>
+  
+  <Tab title="Date/Time">
+    - `date` - Date picker (Calendar icon, DATE type, format: 'YYYY-MM-DD')
+    - `date_time` - DateTime picker (CalendarClock icon, DATETIME type, format: 'YYYY-MM-DD HH:mm:ss')
+    - `time` - Time picker (Clock10 icon, TIME type, format: 'HH:mm:ss')
+  </Tab>
+  
+  <Tab title="Selection">
+    - `select` - Dropdown select (ChevronDown icon, TEXT type)
+    - `checkbox` - Checkbox (CheckSquare icon, INTEGER type)
+    - `switch` - Toggle switch (ToggleLeft icon, INTEGER type)
+    - `radio_group` - Radio group (Circle icon, TEXT type)
+    - `radio_item` - Radio item (Circle icon, INTEGER type, hidden in design)
+  </Tab>
+  
+  <Tab title="Files">
+    - `file_input` - File input (FileInput icon, LONGTEXT type)
+    - `file_uploader` - File uploader (FileUp icon, LONGTEXT type)
+    - `image_input` - Image input (FileImage icon, LONGTEXT type)
+  </Tab>
+  
+  <Tab title="Design Tools">
+    - `color_picker` - Color picker (Palette icon, TEXT type)
+    - `icon_input` - Icon selector (Boxes icon, TEXT type)
+    - `padding` - Padding editor (Shrink icon, TEXT type)
+    - `margin` - Margin editor (Expand icon, TEXT type)
+    - `tailwind` - Tailwind CSS editor (PaintRoler icon, LONGTEXT type)
+    - `theme` - Theme selector (Brush icon, TEXT type)
+  </Tab>
+  
+  <Tab title="Advanced">
+    - `id` - ID field (BookKey icon, INCREMENTS type, hidden in design)
+    - `form_table` - Form table (Sheet icon, STRING type)
+    - `designer` - Designer field (Brush icon, LONGTEXT type)
+  </Tab>
+</Tabs>
+
+---
+
+### elementsDict
+
+Dictionary of all elements with metadata.
+
+```javascript
+import { elementsDict } from 'loopar';
+
+// Get element definition
+const inputDef = elementsDict['input'];
+console.log(inputDef);
+// Output: {
+//   def: {
+//     element: 'input',
+//     icon: 'FormInput',
+//     type: 'STRING',
+//     group: 'form',
+//     isWritable: true
+//   }
+// }
+
+// Check if element is writable (stores data)
+const isWritable = elementsDict['input'].def.isWritable;
+// Output: true (form elements are writable)
+
+const notWritable = elementsDict['button'].def.isWritable;
+// Output: false (design elements are not writable)
+```
+
+<ResponseField name="elementsDict[elementName]" type="object">
+  Element definition object
+  
+  <ResponseField name="def" type="object">
+    Element metadata
+    
+    <ResponseField name="element" type="string">
+      Element name
+    </ResponseField>
+    
+    <ResponseField name="icon" type="string">
+      Icon identifier
+    </ResponseField>
+    
+    <ResponseField name="type" type="string">
+      Database type (for form elements)
+    </ResponseField>
+    
+    <ResponseField name="group" type="string">
+      Element group (layout, design, form, or html)
+    </ResponseField>
+    
+    <ResponseField name="isWritable" type="boolean">
+      Whether element stores data (true for form elements)
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+---
+
+### elementsNames
+
+Array of all element names.
+
+```javascript
+import { elementsNames } from 'loopar';
+
+console.log(elementsNames);
+// Output: ['section', 'div', 'row', 'col', ...]
+
+// Check if element exists
+if (elementsNames.includes('input')) {
+  console.log('Input element is available');
+}
+
+// Filter elements
+const layoutElements = elementsNames.filter(name => 
+  elementsDict[name].def.group === 'layout'
+);
+```
+
+<Note>
+Global constants are automatically created for each element name in UPPERCASE:
+
+```javascript
+// These are automatically available globally:
+console.log(INPUT);     // 'input'
+console.log(BUTTON);    // 'button'
+console.log(SECTION);   // 'section'
+
+// They are read-only and cannot be reassigned
+INPUT = 'something';    // Throws error
+```
+</Note>
+
+---
+
+### elementsNameByType
+
+Filters elements by database type.
+
+```javascript
+import { elementsNameByType, TYPES } from 'loopar';
+
+// Get all string-type elements
+const stringElements = elementsNameByType(TYPES.string);
+// Output: ['input', 'select', 'form_table']
+
+// Get all date-related elements
+const dateElements = elementsNameByType(TYPES.date);
+// Output: ['date']
+
+// Get all integer elements
+const integerElements = elementsNameByType(TYPES.integer);
+// Output: ['integer', 'checkbox', 'switch', 'radio_item']
+```
+
+<ParamField path="type" type="string" required>
+  The database type to filter by (from TYPES)
+</ParamField>
+
+<ResponseField name="return" type="Array<string>">
+  Array of element names that use the specified type
+</ResponseField>
+
+---
+
+## Data Validation
+
+### dataInterface
+
+Creates a validation interface for element data.
+
+```javascript
+import { dataInterface } from 'loopar';
+
+const element = {
+  element: 'input',
+  data: {
+    label: 'Email',
+    name: 'email',
+    format: 'email',
+    required: true
+  }
+};
+
+const validator = dataInterface(element, 'user@example.com');
+
+// Validate the value
+const result = validator.validate();
+console.log(result);
+// Output: { valid: true, message: '' }
+
+// Invalid email
+const invalidValidator = dataInterface(element, 'invalid-email');
+const invalidResult = invalidValidator.validate();
+// Output: { valid: false, message: "'invalid-email' is not a valid value in Email" }
+```
+
+<ParamField path="element" type="object" required>
+  The element definition object with data properties
+  
+  <ParamField path="element" type="string">
+    Element type name
+  </ParamField>
+  
+  <ParamField path="data" type="object">
+    Element data including label, name, and validation rules
+    
+    <ParamField path="label" type="string">
+      Field label for error messages
+    </ParamField>
+    
+    <ParamField path="required" type="boolean | string | number">
+      Whether field is required
+    </ParamField>
+    
+    <ParamField path="format" type="string">
+      Data format (email, url, phone, etc.)
+    </ParamField>
+    
+    <ParamField path="no_validate_type" type="boolean">
+      Skip type validation
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The value to validate
+</ParamField>
+
+<ResponseField name="return" type="DataInterface">
+  Validation interface with methods:
+  
+  <ResponseField name="validate()" type="function">
+    Validates the value and returns `{ valid: boolean, message: string }`
+  </ResponseField>
+  
+  <ResponseField name="validatorRequired()" type="function">
+    Checks if required field has a value
+  </ResponseField>
+  
+  <ResponseField name="validatorRules()" type="function">
+    Validates value against element type rules
+  </ResponseField>
+</ResponseField>
+
+#### Validation Types
+
+The DataInterface supports validation for:
+
+<Tabs>
+  <Tab title="Text Formats">
+    - **Email**: Valid email address format
+    - **URL**: Valid URL format
+    - **Phone**: Valid phone number format
+    - **Postal Code**: Valid postal code format
+    - **Alpha**: Letters only
+    - **AlphaNumeric**: Letters and numbers
+    - **AlphaDash**: Letters, numbers, underscore, hyphen
+    - **AlphaDashSpace**: Letters, numbers, underscore, hyphen, space
+  </Tab>
+  
+  <Tab title="Numbers">
+    - **Number**: Integer numbers
+    - **Float**: Floating point numbers
+    - **Currency**: Currency format (decimal with 2 places)
+  </Tab>
+  
+  <Tab title="Date/Time">
+    - **Date**: Valid date
+    - **DateTime**: Valid datetime
+    - **Time**: Valid time
+  </Tab>
+  
+  <Tab title="Security">
+    - **Password**: Password strength (currently returns valid: true)
+  </Tab>
+</Tabs>
+
+#### Example: Form Validation
+
+```javascript
+import { dataInterface } from 'loopar';
+
+const formFields = [
+  {
+    element: 'input',
+    data: { label: 'Name', name: 'name', required: true }
+  },
+  {
+    element: 'input',
+    data: { label: 'Email', name: 'email', format: 'email', required: true }
+  },
+  {
+    element: 'date',
+    data: { label: 'Birth Date', name: 'birthDate', required: true }
+  }
+];
+
+const formData = {
+  name: '',
+  email: 'invalid',
+  birthDate: '2024-03-15'
+};
+
+const errors = [];
+
+formFields.forEach(field => {
+  const validator = dataInterface(field, formData[field.data.name]);
+  const result = validator.validate();
+  
+  if (!result.valid) {
+    errors.push({
+      field: field.data.name,
+      message: result.message
+    });
+  }
+});
+
+console.log(errors);
+// Output:
+// [
+//   { field: 'name', message: 'Name is required' },
+//   { field: 'email', message: "'invalid' is not a valid value in Email" }
+// ]
+```
+
+---
+
+## Global Functions
+
+### ELEMENT_DEFINITION
+
+Global function to get element definition.
+
+```javascript
+// Available globally
+const def = ELEMENT_DEFINITION('input');
+console.log(def);
+// Output: { element: 'input', icon: 'FormInput', type: 'STRING', ... }
+
+// With fallback
+const defWithFallback = ELEMENT_DEFINITION('nonexistent', 'input');
+// Returns 'input' definition if 'nonexistent' not found
+
+// Error if not found
+const error = ELEMENT_DEFINITION('nonexistent');
+// Throws: Error('Element nonexistent not found')
+```
+
+<ParamField path="element" type="string" required>
+  The element name to look up
+</ParamField>
+
+<ParamField path="or" type="string">
+  Fallback element name if first not found
+</ParamField>
+
+<ResponseField name="return" type="object | Error">
+  Element definition object or Error if not found
+</ResponseField>
+
+---
+
+### fieldIsWritable
+
+Global function to check if a field stores data.
+
+```javascript
+// Available globally
+const isWritable = fieldIsWritable({ element: 'input' });
+console.log(isWritable); // true (form elements are writable)
+
+const notWritable = fieldIsWritable({ element: 'button' });
+console.log(notWritable); // false (design elements are not writable)
+```
+
+<ParamField path="field" type="object" required>
+  Field object with element property
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Whether the field is writable (stores data in database)
+</ResponseField>
+
+---
+
+## AI Integration
+
+### AIPrompt
+
+Generates AI prompts for creating element structures.
+
+```javascript
+import { AIPrompt } from 'loopar';
+
+const { system, user } = AIPrompt(
+  'Create a user registration form with name, email, password',
+  'Entity'
+);
+
+// Use with AI API
+const response = await ai.generate({
+  systemMessage: system.content,
+  userMessage: user.content
+});
+```
+
+<ParamField path="prompt" type="string" required>
+  The user's request describing what to create
+</ParamField>
+
+<ParamField path="document_type" type="string" required>
+  The document type ('Entity' or other)
+</ParamField>
+
+<ResponseField name="return" type="object">
+  AI prompt configuration
+  
+  <ResponseField name="system" type="object">
+    System prompt configuration
+    
+    <ResponseField name="role" type="string">
+      Role: 'developer'
+    </ResponseField>
+    
+    <ResponseField name="content" type="string">
+      System instructions with available elements and format
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="user" type="object">
+    User prompt configuration
+    
+    <ResponseField name="content" type="string">
+      User request formatted for AI
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+---
+
+## Global Error Constants
+
+### GlobalEnvironment
+
+Sets up global error constants.
+
+```javascript
+import { GlobalEnvironment } from 'loopar';
+
+// Initialize global error constants
+GlobalEnvironment();
+
+// Use global constants
+throw VALIDATION_ERROR;           // { code: 400, title: 'Validation error' }
+throw NOT_FOUND_ERROR;            // { code: 404, title: 'Not found' }
+throw UNAUTHORIZED_ERROR;         // { code: 401, title: 'Unauthorized' }
+throw INTERNAL_SERVER_ERROR;      // { code: 500, title: 'Internal server error' }
+```
+
+Available error constants:
+
+| Constant | Code | Title |
+|----------|------|-------|
+| `VALIDATION_ERROR` | 400 | Validation error |
+| `BAD_REQUEST_ERROR` | 400 | Bad request |
+| `UNAUTHORIZED_ERROR` | 401 | Unauthorized |
+| `FORBIDDEN_ERROR` | 403 | Forbidden |
+| `NOT_FOUND_ERROR` | 404 | Not found |
+| `NOT_ACCEPTABLE_ERROR` | 406 | Not acceptable |
+| `CONFLICT_ERROR` | 409 | Conflict |
+| `LENGTH_REQUIRED_ERROR` | 411 | Length required |
+| `REQUEST_ENTITY_TOO_LARGE_ERROR` | 413 | Request entity too large |
+| `REQUEST_URI_TOO_LONG_ERROR` | 414 | Request URI too long |
+| `UNSUPPORTED_MEDIA_TYPE_ERROR` | 415 | Unsupported media type |
+| `UNPROCESSABLE_ENTITY_ERROR` | 422 | Unprocessable entity |
+| `INTERNAL_SERVER_ERROR` | 500 | Internal server error |
+| `NOT_IMPLEMENTED_ERROR` | 501 | Not implemented |
+| `SERVICE_UNAVAILABLE_ERROR` | 503 | Service unavailable |
+| `GATEWAY_TIMEOUT_ERROR` | 504 | Gateway timeout |
+
+---
+
+## Complete Exports
+
+```javascript
+import {
+  // Type Constants
+  TYPES,
+  inputType,
+  ELEMENT_GROUPS,
+  
+  // Element Definitions
+  elementsDefinition,
+  elementsDict,
+  elementsNames,
+  elementsNameByType,
+  
+  // Validation
+  dataInterface,
+  
+  // AI Integration
+  AIPrompt,
+  
+  // Environment Setup
+  GlobalEnvironment
+} from 'loopar';
+```

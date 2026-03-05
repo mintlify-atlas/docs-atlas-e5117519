@@ -1,97 +1,256 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Loopar Framework"
+description: "Build full-stack applications visually with drag-and-drop design tools"
+mode: "custom"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#FF6B35] via-[#FF8C61] to-[#FFB88C] dark:from-[#C44B25] dark:via-[#FF6B35] dark:to-[#FF8C61] py-20">
+  <div className="max-w-6xl mx-auto px-6 relative z-10">
+    <div className="flex flex-col lg:flex-row items-center gap-12">
+      <div className="flex-1 text-white">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+          Build Full-Stack Apps with Visual Design
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 mb-8 max-w-2xl">
+          Loopar is a drag-and-drop JavaScript framework that lets you create powerful applications with visual tools, extensible architecture, and built-in database integration.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 bg-white text-[#FF6B35] rounded-lg font-semibold hover:bg-gray-100 transition-colors no-underline"
+          >
+            Get Started
+            <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+          <a
+            href="/concepts/architecture"
+            className="inline-flex items-center px-6 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors no-underline"
+          >
+            Learn Concepts
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-xl rounded-2xl"></div>
+          <div className="relative p-8">
+            <div className="space-y-3">
+              <div className="h-4 bg-white/30 rounded w-3/4"></div>
+              <div className="h-4 bg-white/20 rounded w-full"></div>
+              <div className="h-4 bg-white/25 rounded w-5/6"></div>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="h-20 bg-white/20 rounded-lg"></div>
+                <div className="h-20 bg-white/25 rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Quick Start
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get your first Loopar application running in minutes
+  </p>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Install Loopar with NPX">
+      Create a new project using the Loopar environment installer:
+      
+      ```bash
+      npx loopar-env my-project --port 8080
+      ```
+      
+      The installer will automatically set up your project and start the development server.
+    </Step>
+    
+    <Step title="Complete the Setup Wizard">
+      Open your browser and navigate to `http://localhost:8080`. The setup wizard will guide you through:
+      
+      - Database configuration (MySQL, MariaDB, or SQLite)
+      - Project settings and credentials
+      - Initial app structure
+      
+      <Note>
+        Your server will automatically restart once the installation is complete.
+      </Note>
+    </Step>
+    
+    <Step title="Start Building Visually">
+      Access the visual designer to create your first component:
+      
+      ```bash
+      npm run dev
+      ```
+      
+      The designer workspace provides drag-and-drop tools for building UIs, forms, and data views without writing code.
+    </Step>
+  </Steps>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Explore by Topic
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Learn the core concepts and features of Loopar Framework
+  </p>
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
+  <CardGroup cols={2}>
     <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      title="Visual Designer"
+      icon="wand-magic-sparkles"
+      href="/designer/overview"
+    >
+      Build UIs with drag-and-drop tools and a visual component editor
+    </Card>
+    <Card
+      title="Components"
+      icon="cubes"
+      href="/components/overview"
+    >
+      Explore 40+ pre-built components for forms, layouts, and data display
+    </Card>
+    <Card
+      title="Controllers"
+      icon="gears"
+      href="/concepts/controllers"
+      >
+      Extend application logic with base controller classes
+    </Card>
+    <Card
+      title="Database ORM"
+      icon="database"
+      href="/database/overview"
+    >
+      Work with data using Sequelize ORM with MySQL, MariaDB, and SQLite
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Key Features
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to build production-ready applications
+  </p>
 
-Everything you need to create world-class documentation.
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-6 border dark:border-[#27272a] border-gray-200 rounded-xl bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 bg-[#FF6B35]/10 rounded-lg flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        No-Code Designer
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Build interfaces visually with an intuitive drag-and-drop designer and element editor
+      </p>
+    </div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+    <div className="p-6 border dark:border-[#27272a] border-gray-200 rounded-xl bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 bg-[#FF6B35]/10 rounded-lg flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Full-Stack Framework
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Server-side rendering, client routing, and Express-based backend in one framework
+      </p>
+    </div>
 
-## Need inspiration?
+    <div className="p-6 border dark:border-[#27272a] border-gray-200 rounded-xl bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 bg-[#FF6B35]/10 rounded-lg flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Database Integration
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Built-in ORM with Sequelize supporting MySQL, MariaDB, and SQLite databases
+      </p>
+    </div>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    <div className="p-6 border dark:border-[#27272a] border-gray-200 rounded-xl bg-gray-50 dark:bg-[#1a1d27]">
+      <div className="w-10 h-10 bg-[#FF6B35]/10 rounded-lg flex items-center justify-center mb-4">
+        <svg className="w-6 h-6 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Modular Architecture
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Extend functionality with a flexible module system and custom controllers
+      </p>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Developer Resources
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Documentation, references, and guides for building with Loopar
+  </p>
+
+  <CardGroup cols={3}>
+    <Card
+      title="CLI Reference"
+      icon="terminal"
+      href="/cli/overview"
+    >
+      Command-line tools for development and deployment
+    </Card>
+    <Card
+      title="API Documentation"
+      icon="code"
+      href="/api/loopar"
+    >
+      Complete API reference for core classes and utilities
+    </Card>
+    <Card
+      title="GitHub Repository"
+      icon="github"
+      href="https://github.com/alphabit-technology/loopar-framework"
+    >
+      Explore the source code and contribute to the project
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="bg-gradient-to-r from-[#FF6B35] to-[#FFB88C] dark:from-[#C44B25] dark:to-[#FF6B35] rounded-2xl p-8 sm:p-12 text-white">
+    <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+      Ready to Start Building?
+    </h2>
+    <p className="text-lg text-white/90 mb-6 max-w-2xl">
+      Follow our quickstart guide to create your first Loopar application in minutes.
+    </p>
+    <a
+      href="/quickstart"
+      className="inline-flex items-center px-6 py-3 bg-white text-[#FF6B35] rounded-lg font-semibold hover:bg-gray-100 transition-colors no-underline"
+    >
+      Get Started Now
+      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </a>
+  </div>
+</div>

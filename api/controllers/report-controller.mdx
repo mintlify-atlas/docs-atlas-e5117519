@@ -1,0 +1,824 @@
+---
+title: ReportController
+description: Controller for managing report documents in Loopar Framework
+---
+
+## Overview
+
+The `ReportController` extends `BaseController` and is specifically designed for handling report-type documents. It enforces view-only access by automatically redirecting all non-view actions to the view action, making it ideal for report generation and display.
+
+## Class Definition
+
+```javascript
+import BaseController from './base-controller.js';
+import { loopar } from "loopar";
+
+export default class ReportController extends BaseController {
+  constructor(props) {
+    super(props);
+    this.action !== 'view' && this.redirect('view');
+  }
+
+  async actionView() {
+    const document = await loopar.getDocument(this.document, this.name);
+    return await this.render(document);
+  }
+}
+```
+
+**Source:** `packages/loopar/core/controller/report-controller.js:6`
+
+## When to Use
+
+- For generating and displaying reports
+- When you need to present aggregated data or analytics
+- For financial reports, sales reports, or business intelligence dashboards
+- When you want to prevent report modification through the UI
+- For data visualization and analysis pages
+
+## Key Features
+
+- Automatic redirection of all actions to 'view'
+- View-only access enforcement for reports
+- Inherits all BaseController functionality (available programmatically)
+- Simplified report rendering
+- Ideal for data presentation without edit capabilities
+
+## Constructor
+
+<ParamField path="props" type="object" required>
+  Configuration object containing controller initialization parameters:
+  - `action`: The current action being performed (will be redirected if not 'view')
+  - `document`: The document type being controlled (typically a Report)
+  - `name`: The name/identifier of the specific report
+  - `data`: Request data, often containing report parameters and filters
+  - `req`: HTTP request object
+  - `res`: HTTP response object
+  - Other inherited controller properties
+</ParamField>
+
+**Behavior:** Automatically redirects to 'view' action if any other action is attempted.
+
+## Methods
+
+### actionView()
+
+Handles the view action by loading and rendering the report document.
+
+```javascript
+async actionView()
+```
+
+**Returns:** `Promise<object>` - Rendered report response with report data and metadata
+
+**Implementation:**
+```javascript
+async actionView() {
+  const document = await loopar.getDocument(this.document, this.name);
+  return await this.render(document);
+}
+```
+
+**Process:**
+1. Loads the report document using `loopar.getDocument()`
+2. Renders the report with appropriate metadata
+3. Returns the rendered response for display
+
+**Source:** `packages/loopar/core/controller/report-controller.js:13`
+
+## Properties
+
+<ResponseField name="action" type="string">
+  Current action being executed - always 'view' due to automatic redirection
+</ResponseField>
+
+<ResponseField name="document" type="string">
+  Document type name being controlled (e.g., 'Sales Report', 'Analytics Dashboard')
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name/identifier of the specific report instance
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Request data object, typically containing report filters and parameters
+</ResponseField>
+
+<ResponseField name="defaultAction" type="string" default="list">
+  Default action inherited from BaseController (redirected to 'view')
+</ResponseField>
+
+<ResponseField name="hasSidebar" type="boolean" default="true">
+  Whether to display sidebar navigation (inherited from BaseController)
+</ResponseField>
+
+## Inherited Methods
+
+ReportController inherits all methods from:
+- [BaseController](/api/controllers/base-controller) - Full CRUD operations (programmatic access only)
+- CoreController - Rendering, error handling, authentication
+- AuthController - User authentication and authorization
+
+### Available Inherited Methods
+
+While UI access is restricted to 'view', these methods are available programmatically:
+
+<AccordionGroup>
+  <Accordion title="render(meta)">
+    ```javascript
+    async render(meta)
+    ```
+    Renders the report with appropriate metadata and styling.
+    
+    **Returns:** `Promise<object>` - Rendered report response
+  </Accordion>
+
+  <Accordion title="success(message, options)">
+    ```javascript
+    async success(message, options = {})
+    ```
+    Returns a success response.
+    
+    **Returns:** `Promise<object>` - Success response with notification
+  </Accordion>
+
+  <Accordion title="error(message, options, status)">
+    ```javascript
+    async error(message, options, status)
+    ```
+    Returns an error response.
+    
+    **Returns:** `Promise<object>` - Error response with notification
+  </Accordion>
+
+  <Accordion title="actionList()">
+    ```javascript
+    async actionList()
+    ```
+    Lists all reports (available programmatically).
+    
+    **Returns:** `Promise<object>` - List of reports with pagination
+  </Accordion>
+</AccordionGroup>
+
+## Usage Examples
+
+### Creating a Sales Report Controller
+
+```javascript
+import ReportController from '@loopar/core/controller/report-controller';
+import { loopar } from 'loopar';
+
+export default class SalesReportController extends ReportController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const report = await loopar.getDocument(this.document, this.name);
+    
+    // Get report parameters from request data
+    const { startDate, endDate, region, salesPerson } = this.data || report.config;
+    
+    // Generate report data
+    const reportData = await this.generateSalesReport({
+      startDate,
+      endDate,
+      region,
+      salesPerson
+    });
+    
+    // Attach data to report
+    report.data = reportData;
+    report.generatedAt = new Date();
+    report.parameters = { startDate, endDate, region, salesPerson };
+    
+    return await this.render(report);
+  }
+  
+  async generateSalesReport(params) {
+    const { startDate, endDate, region, salesPerson } = params;
+    
+    // Build query with filters
+    let query = `
+      SELECT 
+        so.name,
+        so.customer_name,
+        so.grand_total,
+        so.status,
+        so.creation,
+        sp.name as sales_person
+      FROM \`Sales Order\` so
+      LEFT JOIN \`Sales Person\` sp ON so.sales_person = sp.name
+      WHERE so.creation BETWEEN ? AND ?
+    `;
+    
+    const queryParams = [startDate, endDate];
+    
+    if (region) {
+      query += ' AND so.region = ?';
+      queryParams.push(region);
+    }
+    
+    if (salesPerson) {
+      query += ' AND so.sales_person = ?';
+      queryParams.push(salesPerson);
+    }
+    
+    query += ' ORDER BY so.creation DESC';
+    
+    const orders = await loopar.db.getAll(query, queryParams);
+    
+    // Calculate summary statistics
+    const summary = {
+      totalRevenue: orders.reduce((sum, order) => sum + order.grand_total, 0),
+      orderCount: orders.length,
+      averageOrderValue: orders.length > 0 
+        ? orders.reduce((sum, order) => sum + order.grand_total, 0) / orders.length 
+        : 0,
+      topCustomers: await this.getTopCustomers(orders)
+    };
+    
+    return {
+      orders,
+      summary,
+      charts: await this.generateChartData(orders)
+    };
+  }
+  
+  async getTopCustomers(orders) {
+    const customerTotals = {};
+    
+    orders.forEach(order => {
+      if (!customerTotals[order.customer_name]) {
+        customerTotals[order.customer_name] = 0;
+      }
+      customerTotals[order.customer_name] += order.grand_total;
+    });
+    
+    return Object.entries(customerTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([customer, total]) => ({ customer, total }));
+  }
+  
+  async generateChartData(orders) {
+    // Group by date for trend chart
+    const dailyTotals = {};
+    
+    orders.forEach(order => {
+      const date = order.creation.split('T')[0];
+      if (!dailyTotals[date]) {
+        dailyTotals[date] = 0;
+      }
+      dailyTotals[date] += order.grand_total;
+    });
+    
+    return {
+      trend: Object.entries(dailyTotals).map(([date, total]) => ({ date, total })),
+      statusDistribution: this.getStatusDistribution(orders)
+    };
+  }
+  
+  getStatusDistribution(orders) {
+    const distribution = {};
+    
+    orders.forEach(order => {
+      if (!distribution[order.status]) {
+        distribution[order.status] = 0;
+      }
+      distribution[order.status]++;
+    });
+    
+    return distribution;
+  }
+}
+```
+
+### Financial Report with Export
+
+```javascript
+import ReportController from '@loopar/core/controller/report-controller';
+import { loopar } from 'loopar';
+
+export default class FinancialReportController extends ReportController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const report = await loopar.getDocument(this.document, this.name);
+    
+    // Get fiscal period
+    const { fiscalYear, quarter } = this.data || report.config;
+    
+    // Generate financial statements
+    const financialData = await this.generateFinancialStatements(fiscalYear, quarter);
+    
+    report.data = financialData;
+    report.fiscalYear = fiscalYear;
+    report.quarter = quarter;
+    report.generatedAt = new Date();
+    
+    return await this.render(report);
+  }
+  
+  async generateFinancialStatements(fiscalYear, quarter) {
+    const startDate = this.getQuarterStartDate(fiscalYear, quarter);
+    const endDate = this.getQuarterEndDate(fiscalYear, quarter);
+    
+    const [incomeStatement, balanceSheet, cashFlow] = await Promise.all([
+      this.generateIncomeStatement(startDate, endDate),
+      this.generateBalanceSheet(endDate),
+      this.generateCashFlowStatement(startDate, endDate)
+    ]);
+    
+    return {
+      incomeStatement,
+      balanceSheet,
+      cashFlow,
+      period: { startDate, endDate, fiscalYear, quarter }
+    };
+  }
+  
+  async generateIncomeStatement(startDate, endDate) {
+    const revenue = await this.getTotalRevenue(startDate, endDate);
+    const expenses = await this.getTotalExpenses(startDate, endDate);
+    const cogs = await this.getCOGS(startDate, endDate);
+    
+    const grossProfit = revenue - cogs;
+    const operatingIncome = grossProfit - expenses;
+    const netIncome = operatingIncome; // Simplified
+    
+    return {
+      revenue,
+      cogs,
+      grossProfit,
+      expenses,
+      operatingIncome,
+      netIncome,
+      profitMargin: revenue > 0 ? (netIncome / revenue) * 100 : 0
+    };
+  }
+  
+  async generateBalanceSheet(asOfDate) {
+    const assets = await this.getTotalAssets(asOfDate);
+    const liabilities = await this.getTotalLiabilities(asOfDate);
+    const equity = assets - liabilities;
+    
+    return {
+      assets,
+      liabilities,
+      equity,
+      asOfDate
+    };
+  }
+  
+  async generateCashFlowStatement(startDate, endDate) {
+    const operating = await this.getOperatingCashFlow(startDate, endDate);
+    const investing = await this.getInvestingCashFlow(startDate, endDate);
+    const financing = await this.getFinancingCashFlow(startDate, endDate);
+    
+    return {
+      operating,
+      investing,
+      financing,
+      netCashFlow: operating + investing + financing
+    };
+  }
+  
+  // Action to export report as PDF
+  async actionExportPDF() {
+    const report = await loopar.getDocument(this.document, this.name);
+    const { fiscalYear, quarter } = this.data;
+    
+    const financialData = await this.generateFinancialStatements(fiscalYear, quarter);
+    
+    // Generate PDF (using a PDF library)
+    const pdf = await this.generatePDF(report, financialData);
+    
+    return {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="financial-report-${fiscalYear}-Q${quarter}.pdf"`
+      },
+      body: pdf
+    };
+  }
+  
+  // Helper methods
+  getQuarterStartDate(fiscalYear, quarter) {
+    const month = (quarter - 1) * 3;
+    return new Date(fiscalYear, month, 1);
+  }
+  
+  getQuarterEndDate(fiscalYear, quarter) {
+    const month = quarter * 3;
+    return new Date(fiscalYear, month, 0);
+  }
+  
+  async getTotalRevenue(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'Sales Invoice',
+      'SUM(grand_total)',
+      { creation: ['BETWEEN', startDate, endDate], status: 'Paid' }
+    );
+    return result || 0;
+  }
+  
+  async getTotalExpenses(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'Expense',
+      'SUM(amount)',
+      { creation: ['BETWEEN', startDate, endDate] }
+    );
+    return result || 0;
+  }
+  
+  async getCOGS(startDate, endDate) {
+    // Cost of Goods Sold calculation
+    const result = await loopar.db.getValue(
+      'Purchase Invoice',
+      'SUM(grand_total)',
+      { creation: ['BETWEEN', startDate, endDate], status: 'Paid' }
+    );
+    return result || 0;
+  }
+  
+  async getTotalAssets(asOfDate) {
+    const result = await loopar.db.getValue(
+      'Asset',
+      'SUM(current_value)',
+      { status: 'Active', purchase_date: ['<=', asOfDate] }
+    );
+    return result || 0;
+  }
+  
+  async getTotalLiabilities(asOfDate) {
+    const result = await loopar.db.getValue(
+      'Liability',
+      'SUM(amount)',
+      { status: 'Active', date: ['<=', asOfDate] }
+    );
+    return result || 0;
+  }
+  
+  async getOperatingCashFlow(startDate, endDate) {
+    // Simplified operating cash flow
+    const revenue = await this.getTotalRevenue(startDate, endDate);
+    const expenses = await this.getTotalExpenses(startDate, endDate);
+    return revenue - expenses;
+  }
+  
+  async getInvestingCashFlow(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'Asset Purchase',
+      'SUM(amount)',
+      { creation: ['BETWEEN', startDate, endDate] }
+    );
+    return -(result || 0);
+  }
+  
+  async getFinancingCashFlow(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'Loan',
+      'SUM(amount)',
+      { creation: ['BETWEEN', startDate, endDate] }
+    );
+    return result || 0;
+  }
+}
+```
+
+### Analytics Dashboard Report
+
+```javascript
+import ReportController from '@loopar/core/controller/report-controller';
+import { loopar } from 'loopar';
+
+export default class AnalyticsDashboardController extends ReportController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const report = await loopar.getDocument(this.document, this.name);
+    
+    // Get date range from request or use defaults
+    const dateRange = this.getDateRange();
+    
+    // Generate all analytics in parallel
+    const [kpis, trends, comparisons, predictions] = await Promise.all([
+      this.getKPIs(dateRange),
+      this.getTrends(dateRange),
+      this.getComparisons(dateRange),
+      this.getPredictions(dateRange)
+    ]);
+    
+    report.data = {
+      kpis,
+      trends,
+      comparisons,
+      predictions,
+      dateRange,
+      generatedAt: new Date()
+    };
+    
+    return await this.render(report);
+  }
+  
+  getDateRange() {
+    const { startDate, endDate } = this.data || {};
+    
+    if (startDate && endDate) {
+      return { startDate, endDate };
+    }
+    
+    // Default to last 30 days
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    
+    return {
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0]
+    };
+  }
+  
+  async getKPIs(dateRange) {
+    const { startDate, endDate } = dateRange;
+    
+    return {
+      totalRevenue: await this.calculateTotalRevenue(startDate, endDate),
+      activeUsers: await this.getActiveUsers(startDate, endDate),
+      conversionRate: await this.calculateConversionRate(startDate, endDate),
+      averageOrderValue: await this.calculateAverageOrderValue(startDate, endDate),
+      customerSatisfaction: await this.getCustomerSatisfaction(startDate, endDate)
+    };
+  }
+  
+  async getTrends(dateRange) {
+    const { startDate, endDate } = dateRange;
+    
+    return {
+      revenue: await this.getRevenueTrend(startDate, endDate),
+      users: await this.getUserTrend(startDate, endDate),
+      orders: await this.getOrderTrend(startDate, endDate)
+    };
+  }
+  
+  async getComparisons(dateRange) {
+    const { startDate, endDate } = dateRange;
+    const previousPeriod = this.getPreviousPeriod(startDate, endDate);
+    
+    const current = await this.getKPIs(dateRange);
+    const previous = await this.getKPIs(previousPeriod);
+    
+    return {
+      current,
+      previous,
+      changes: this.calculateChanges(current, previous)
+    };
+  }
+  
+  async getPredictions(dateRange) {
+    const trends = await this.getTrends(dateRange);
+    
+    return {
+      nextMonthRevenue: this.predictRevenue(trends.revenue),
+      nextMonthUsers: this.predictUsers(trends.users),
+      confidence: 0.85
+    };
+  }
+  
+  // Custom action for real-time data refresh
+  async actionRefresh() {
+    const dateRange = this.getDateRange();
+    const kpis = await this.getKPIs(dateRange);
+    
+    return this.success('Data refreshed', { kpis });
+  }
+  
+  // Helper methods
+  async calculateTotalRevenue(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'Sales Order',
+      'SUM(grand_total)',
+      { creation: ['BETWEEN', startDate, endDate] }
+    );
+    return result || 0;
+  }
+  
+  async getActiveUsers(startDate, endDate) {
+    const result = await loopar.db.getValue(
+      'User Activity',
+      'COUNT(DISTINCT user)',
+      { timestamp: ['BETWEEN', startDate, endDate] }
+    );
+    return result || 0;
+  }
+  
+  async calculateConversionRate(startDate, endDate) {
+    const visitors = await loopar.db.getCount('Page View', {
+      timestamp: ['BETWEEN', startDate, endDate]
+    });
+    const conversions = await loopar.db.getCount('Sales Order', {
+      creation: ['BETWEEN', startDate, endDate]
+    });
+    
+    return visitors > 0 ? (conversions / visitors) * 100 : 0;
+  }
+  
+  async calculateAverageOrderValue(startDate, endDate) {
+    const total = await this.calculateTotalRevenue(startDate, endDate);
+    const count = await loopar.db.getCount('Sales Order', {
+      creation: ['BETWEEN', startDate, endDate]
+    });
+    
+    return count > 0 ? total / count : 0;
+  }
+  
+  getPreviousPeriod(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const duration = end - start;
+    
+    const previousEnd = new Date(start);
+    previousEnd.setDate(previousEnd.getDate() - 1);
+    
+    const previousStart = new Date(previousEnd);
+    previousStart.setTime(previousStart.getTime() - duration);
+    
+    return {
+      startDate: previousStart.toISOString().split('T')[0],
+      endDate: previousEnd.toISOString().split('T')[0]
+    };
+  }
+  
+  calculateChanges(current, previous) {
+    const changes = {};
+    
+    for (const [key, value] of Object.entries(current)) {
+      const prevValue = previous[key];
+      if (typeof value === 'number' && typeof prevValue === 'number') {
+        changes[key] = {
+          value: value - prevValue,
+          percentage: prevValue !== 0 ? ((value - prevValue) / prevValue) * 100 : 0
+        };
+      }
+    }
+    
+    return changes;
+  }
+  
+  predictRevenue(revenueTrend) {
+    // Simple linear regression prediction
+    if (!revenueTrend || revenueTrend.length < 2) return 0;
+    
+    const recent = revenueTrend.slice(-7); // Last 7 days
+    const avgGrowth = recent.reduce((sum, day, i) => {
+      if (i === 0) return 0;
+      return sum + (day.total - recent[i - 1].total);
+    }, 0) / (recent.length - 1);
+    
+    const lastValue = recent[recent.length - 1].total;
+    return lastValue + (avgGrowth * 30); // Project 30 days ahead
+  }
+}
+```
+
+## Best Practices
+
+<Note>
+  **Report Generation**: Generate report data in `actionView()` and cache results when appropriate to improve performance.
+</Note>
+
+<Warning>
+  Reports can be data-intensive. Implement pagination, lazy loading, or data aggregation to maintain performance with large datasets.
+</Warning>
+
+### Do's
+
+- Cache report data when possible to reduce database load
+- Implement filters and parameters for flexible reporting
+- Provide export functionality (PDF, Excel, CSV)
+- Use database indexes on fields used in report queries
+- Show loading indicators for long-running reports
+- Implement real-time refresh options when needed
+- Add date range selectors for time-based reports
+
+### Don'ts
+
+- Don't run expensive queries without optimization
+- Don't load all data at once for large datasets
+- Don't skip input validation on report parameters
+- Don't expose raw database queries to users
+- Avoid generating reports synchronously for very large datasets
+
+## Performance Optimization
+
+```javascript
+import ReportController from '@loopar/core/controller/report-controller';
+import { loopar } from 'loopar';
+
+export default class OptimizedReportController extends ReportController {
+  async actionView() {
+    const report = await loopar.getDocument(this.document, this.name);
+    const params = this.getReportParameters();
+    
+    // Check cache first
+    const cacheKey = this.getCacheKey(params);
+    let reportData = await loopar.cache.get(cacheKey);
+    
+    if (!reportData) {
+      // Generate report
+      reportData = await this.generateReport(params);
+      
+      // Cache for 1 hour
+      await loopar.cache.set(cacheKey, reportData, 3600);
+    }
+    
+    report.data = reportData;
+    report.cached = !!reportData;
+    report.generatedAt = new Date();
+    
+    return await this.render(report);
+  }
+  
+  getCacheKey(params) {
+    return `report_${this.document}_${this.name}_${JSON.stringify(params)}`;
+  }
+  
+  async actionClearCache() {
+    const params = this.getReportParameters();
+    const cacheKey = this.getCacheKey(params);
+    await loopar.cache.delete(cacheKey);
+    
+    return this.success('Cache cleared');
+  }
+}
+```
+
+## Comparison with Other Controllers
+
+| Feature | ReportController | ViewController | FormController | BaseController |
+|---------|-----------------|---------------|----------------|----------------|
+| Multiple instances | Yes | Yes | Yes | Yes |
+| List view | Redirected | Redirected | Redirected | Yes |
+| Edit capability | No | No | No | Yes |
+| Best for | Reports | Read-only docs | Forms | Full CRUD |
+| Action restriction | View only | View only | View only | All actions |
+| Data aggregation | Yes | Optional | No | No |
+
+## Related Controllers
+
+- [BaseController](/api/controllers/base-controller) - Parent class with full CRUD
+- [ViewController](/api/controllers/view-controller) - Similar view-only behavior
+- [FormController](/api/controllers/form-controller) - For form handling
+- [SingleController](/api/controllers/single-controller) - For single-instance documents
+
+## Common Use Cases
+
+1. **Sales Reports**: Revenue, orders, and sales performance
+2. **Financial Statements**: Income statements, balance sheets, cash flow
+3. **Analytics Dashboards**: KPIs, trends, and business intelligence
+4. **Inventory Reports**: Stock levels, movements, valuations
+5. **User Activity Reports**: Engagement, retention, behavior analysis
+6. **Performance Reports**: Employee, department, or project performance
+7. **Compliance Reports**: Regulatory and audit reports
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Report generation is slow">
+    - Optimize database queries with proper indexes
+    - Implement caching for frequently accessed reports
+    - Use pagination for large datasets
+    - Consider pre-generating reports asynchronously
+  </Accordion>
+
+  <Accordion title="Cannot edit or create reports">
+    This is by design. ReportController restricts actions to 'view' only. If you need to create or edit report definitions, access them through BaseController or implement custom actions.
+  </Accordion>
+
+  <Accordion title="Report shows outdated data">
+    If caching is enabled, implement a cache refresh mechanism:
+    ```javascript
+    async actionRefresh() {
+      await this.clearReportCache();
+      return await this.actionView();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Export functionality not working">
+    Implement custom export actions:
+    ```javascript
+    async actionExportCSV() {
+      const data = await this.generateReport();
+      return this.exportAsCSV(data);
+    }
+    ```
+  </Accordion>
+</AccordionGroup>

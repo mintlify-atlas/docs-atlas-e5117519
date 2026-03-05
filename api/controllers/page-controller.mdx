@@ -1,0 +1,415 @@
+---
+title: PageController
+description: Specialized controller for managing page-type documents in Loopar Framework
+---
+
+## Overview
+
+The `PageController` extends `SingleController` and is specifically designed for handling page-type documents. It inherits all single-document behavior while setting a specific client-side rendering mode for pages.
+
+## Class Definition
+
+```javascript
+import SingleController from './single-controller.js';
+
+export default class PageController extends SingleController {
+  client = 'page';
+  
+  constructor(props) {
+    super(props);
+  }
+}
+```
+
+**Source:** `packages/loopar/core/controller/page-controller.js:5`
+
+## When to Use
+
+- For creating custom page views in your application
+- When building landing pages or informational pages
+- For dashboard or portal pages
+- When you need single-instance page behavior with specialized rendering
+
+## Key Features
+
+- Inherits all SingleController functionality
+- Sets client-side rendering mode to 'page'
+- Automatic single-instance behavior (no list views)
+- Integrated with web app navigation system
+- Optimized for page-type document rendering
+
+## Constructor
+
+<ParamField path="props" type="object" required>
+  Configuration object containing controller initialization parameters:
+  - `action`: The current action being performed
+  - `document`: The document type (typically a Page)
+  - `data`: Request data
+  - `req`: HTTP request object
+  - `res`: HTTP response object
+  - Other inherited controller properties
+</ParamField>
+
+**Behavior:** Inherits SingleController behavior, which automatically redirects list actions to update.
+
+## Properties
+
+<ResponseField name="client" type="string" default="page">
+  Client-side rendering mode, set to 'page' for page-specific rendering logic
+</ResponseField>
+
+<ResponseField name="action" type="string">
+  Current action being executed (inherited)
+</ResponseField>
+
+<ResponseField name="document" type="string">
+  Document type name being controlled
+</ResponseField>
+
+<ResponseField name="defaultAction" type="string" default="list">
+  Default action, automatically redirected to 'update' for single documents
+</ResponseField>
+
+<ResponseField name="hasSidebar" type="boolean" default="true">
+  Whether to display sidebar navigation
+</ResponseField>
+
+## Inherited Methods
+
+PageController inherits all methods from:
+- [SingleController](/api/controllers/single-controller) - Single document management
+- [BaseController](/api/controllers/base-controller) - CRUD operations
+- CoreController - Rendering, error handling
+- AuthController - Authentication and authorization
+
+### Core Methods Available
+
+#### From SingleController
+
+<AccordionGroup>
+  <Accordion title="getParent()">
+    ```javascript
+    async getParent()
+    ```
+    Retrieves the parent menu item for the current page.
+    
+    **Returns:** `Promise<string>` - Parent page identifier
+  </Accordion>
+
+  <Accordion title="sendAction(action)">
+    ```javascript
+    async sendAction(action)
+    ```
+    Handles action dispatching with custom logic.
+    
+    **Parameters:**
+    - `action` (string) - Action name to execute
+    
+    **Returns:** `Promise<object>` - Action execution result
+  </Accordion>
+
+  <Accordion title="actionView()">
+    ```javascript
+    async actionView()
+    ```
+    Renders the page document.
+    
+    **Returns:** `Promise<object>` - Rendered page response
+  </Accordion>
+
+  <Accordion title="sendDocument(action)">
+    ```javascript
+    async sendDocument(action = this.document)
+    ```
+    Retrieves and renders the page with navigation context.
+    
+    **Returns:** `Promise<object>` - Rendered page with metadata
+  </Accordion>
+</AccordionGroup>
+
+#### From BaseController
+
+<AccordionGroup>
+  <Accordion title="actionUpdate(document)">
+    ```javascript
+    async actionUpdate(document)
+    ```
+    Updates the page document with provided data.
+    
+    **Returns:** `Promise<object>` - Success message or rendered form
+  </Accordion>
+
+  <Accordion title="actionDelete()">
+    ```javascript
+    async actionDelete()
+    ```
+    Deletes the page document.
+    
+    **Returns:** `Promise<object>` - Redirect to list
+  </Accordion>
+</AccordionGroup>
+
+#### From CoreController
+
+<AccordionGroup>
+  <Accordion title="render(meta)">
+    ```javascript
+    async render(meta)
+    ```
+    Renders the page with client-side entry point set to 'page' mode.
+    
+    **Returns:** `Promise<object>` - Rendered response with metadata
+  </Accordion>
+
+  <Accordion title="success(message, options)">
+    ```javascript
+    async success(message, options = {})
+    ```
+    Returns a success response.
+    
+    **Returns:** `Promise<object>` - Success response with notification
+  </Accordion>
+
+  <Accordion title="error(message, options, status)">
+    ```javascript
+    async error(message, options, status)
+    ```
+    Returns an error response.
+    
+    **Returns:** `Promise<object>` - Error response with notification
+  </Accordion>
+</AccordionGroup>
+
+## Usage Examples
+
+### Creating a Custom Page Controller
+
+```javascript
+import PageController from '@loopar/core/controller/page-controller';
+
+export default class DashboardController extends PageController {
+  constructor(props) {
+    super(props);
+  }
+  
+  // Override to add custom data loading
+  async actionView() {
+    const document = await super.actionView();
+    
+    // Add custom dashboard data
+    document.stats = await this.loadDashboardStats();
+    document.recentActivity = await this.loadRecentActivity();
+    
+    return document;
+  }
+  
+  async loadDashboardStats() {
+    return {
+      totalUsers: await loopar.db.getCount('User'),
+      activeProjects: await loopar.db.getCount('Project', { status: 'Active' }),
+      pendingTasks: await loopar.db.getCount('Task', { status: 'Pending' })
+    };
+  }
+  
+  async loadRecentActivity() {
+    return await loopar.db.getList('Activity Log', {
+      limit: 10,
+      orderBy: 'creation DESC'
+    });
+  }
+}
+```
+
+### Creating a Landing Page
+
+```javascript
+import PageController from '@loopar/core/controller/page-controller';
+
+export default class HomeController extends PageController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const page = await loopar.getDocument('Page', 'Home');
+    
+    // Add dynamic content
+    page.featuredProducts = await this.getFeaturedProducts();
+    page.testimonials = await this.getTestimonials();
+    
+    return await this.render(page);
+  }
+  
+  async getFeaturedProducts() {
+    return await loopar.getList('Product', {
+      data: { featured: 1 },
+      limit: 6
+    });
+  }
+  
+  async getTestimonials() {
+    return await loopar.getList('Testimonial', {
+      data: { status: 'Published' },
+      limit: 3,
+      orderBy: 'creation DESC'
+    });
+  }
+}
+```
+
+### Custom Action for Page Analytics
+
+```javascript
+import PageController from '@loopar/core/controller/page-controller';
+
+export default class ContentPageController extends PageController {
+  constructor(props) {
+    super(props);
+  }
+  
+  // Track page views
+  async actionView() {
+    await this.trackPageView();
+    return await super.actionView();
+  }
+  
+  async trackPageView() {
+    const analytics = await loopar.newDocument('Page Analytics');
+    analytics.page_name = this.document;
+    analytics.user_id = loopar.currentUser?.name;
+    analytics.timestamp = new Date();
+    await analytics.save();
+  }
+  
+  // Custom action to get analytics
+  async actionAnalytics() {
+    const views = await loopar.db.getList('Page Analytics', {
+      data: { page_name: this.document },
+      fields: ['COUNT(*) as total_views', 'DATE(timestamp) as date'],
+      groupBy: 'date',
+      orderBy: 'date DESC',
+      limit: 30
+    });
+    
+    return this.success('Analytics retrieved', { analytics: views });
+  }
+}
+```
+
+### Integrating with Web App Navigation
+
+```javascript
+import PageController from '@loopar/core/controller/page-controller';
+
+export default class AboutPageController extends PageController {
+  constructor(props) {
+    super(props);
+  }
+  
+  async actionView() {
+    const document = await loopar.getDocument('Page', 'About');
+    const parent = await this.getParent();
+    
+    // Use parent for breadcrumb navigation
+    document.breadcrumbs = await this.buildBreadcrumbs(parent);
+    
+    return await this.render(document);
+  }
+  
+  async buildBreadcrumbs(parentPage) {
+    const breadcrumbs = [{ label: 'Home', link: '/' }];
+    
+    if (parentPage) {
+      const parent = await loopar.getDocument('Page', parentPage);
+      breadcrumbs.push({ label: parent.title, link: parent.route });
+    }
+    
+    breadcrumbs.push({ label: 'About', link: '/about' });
+    return breadcrumbs;
+  }
+}
+```
+
+## Client-Side Rendering
+
+The `client = 'page'` property affects how the page is rendered on the client side:
+
+```javascript
+// In CoreController's clientImporter method
+const getClient = () => {
+  if(["Page", "View"].includes(Document.Entity.type)) return "view";
+  if (this.client) return this.client; // Returns 'page' for PageController
+  // ... other logic
+}
+```
+
+This ensures the correct client-side entry point is used for page rendering.
+
+## Best Practices
+
+<Note>
+  **Page Documents**: Use PageController for documents that represent actual pages in your application, not for data entities.
+</Note>
+
+<Warning>
+  PageController inherits SingleController behavior. You cannot create multiple instances of a page document through the standard UI.
+</Warning>
+
+### Do's
+
+- Use for landing pages, dashboards, and custom views
+- Override `actionView()` to add custom data loading
+- Implement custom actions for page-specific functionality
+- Leverage the parent menu system for navigation
+- Track page analytics by extending actionView
+
+### Don'ts
+
+- Don't use for data entities that need CRUD operations
+- Don't expect list views to work (they redirect to update)
+- Don't use for documents that need multiple instances
+- Avoid complex business logic in page controllers
+
+## Comparison with Other Controllers
+
+| Feature | PageController | SingleController | BaseController | FormController |
+|---------|---------------|------------------|----------------|----------------|
+| Multiple instances | No | No | Yes | Yes |
+| List view | Redirected | Redirected | Yes | Redirected |
+| Client mode | 'page' | Inherited | Dynamic | N/A |
+| Best for | Pages/Views | Settings | Data entities | Public forms |
+| Single instance | Yes | Yes | No | No |
+
+## Related Controllers
+
+- [SingleController](/api/controllers/single-controller) - Parent class for single documents
+- [ViewController](/api/controllers/view-controller) - Similar purpose with 'view' client mode
+- [BaseController](/api/controllers/base-controller) - Core CRUD functionality
+- [FormController](/api/controllers/form-controller) - Form-specific handling
+
+## Common Use Cases
+
+1. **Dashboard Pages**: Main application dashboards with aggregated data
+2. **Landing Pages**: Public-facing pages with dynamic content
+3. **About/Help Pages**: Static or semi-static content pages
+4. **Portal Pages**: User-specific portal pages
+5. **Settings Pages**: Configuration pages (though SingleController might be more appropriate)
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Page redirects to update instead of showing content">
+    This is expected behavior for single documents. Ensure your route uses the 'view' action explicitly:
+    ```
+    /desk/MyPage/view
+    ```
+  </Accordion>
+
+  <Accordion title="Client rendering doesn't use 'page' mode">
+    Check that the document Entity type is set correctly and that no other controller properties override the client setting.
+  </Accordion>
+
+  <Accordion title="Cannot create new page instances">
+    PageController inherits from SingleController, which prevents multiple instances. Use BaseController for multi-instance documents.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,469 @@
+---
+title: Migrations
+description: Manage database schema changes and migrations in Loopar
+---
+
+# Migrations
+
+Loopar automatically manages database schema changes through its Entity system. When you create or modify an Entity, the database schema is automatically synchronized.
+
+## Automatic Schema Management
+
+Loopar uses Sequelize to automatically create and alter database tables based on your Entity definitions. This eliminates the need for manual migration files.
+
+## How It Works
+
+### Table Creation
+
+When a new Entity is created, Loopar automatically creates the corresponding database table:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async makeTable(name, fields) {
+  const tableName = this.tableName(name);
+  const exists = await this.hasTable(name);
+  
+  if (exists) {
+    // Alter existing table
+    const dbFields = await this.getTableDescription(name);
+    await this.alterTable(tableName, fields, dbFields);
+  } else {
+    // Create new table
+    await this.createTable(tableName, fields);
+  }
+}
+```
+
+### Creating Tables
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async createTable(tableName, fields) {
+  console.log(["Create Table", tableName, fields])
+  const columns = this.generateColumnsSQL(fields, 'create');
+  const indexes = this.generateIndexes(fields);
+  
+  let sql = `CREATE TABLE IF NOT EXISTS ${tableName} (${columns.join(', ')}`;
+
+  if (indexes.length > 0) {
+    sql += `, ${indexes.join(', ')}`;
+  }
+  
+  sql += ')';
+  
+  if (this.dialect.includes('mysql')) {
+    sql += ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+  }
+  
+  await this.sequelize.query(sql, {
+    type: QueryTypes.RAW,
+    transaction: this.transaction
+  });
+  
+  await this.createTableIndexes(tableName, fields);
+}
+```
+
+### Altering Tables
+
+When you add new fields to an Entity, Loopar automatically adds the corresponding columns:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async alterTable(tableName, fields, existingFields) {
+  const existingColumns = new Set(
+    existingFields.map(f => f.name.toLowerCase())
+  );
+  
+  const alterations = [];
+  const newFields = [];
+  
+  const processField = (field) => {
+    if (fieldIsWritable(field)) {
+      const columnName = field.data.name.toLowerCase();
+      
+      if (!existingColumns.has(columnName)) {
+        const columnSQL = generateColumnSQL(field, 'alter', this.dialect);
+        alterations.push(`ADD COLUMN ${columnSQL}`);
+        newFields.push(field);
+      }
+    }
+    
+    if (field.elements && Array.isArray(field.elements)) {
+      field.elements.forEach(processField);
+    }
+  };
+  
+  fields.forEach(processField);
+  
+  if (alterations.length > 0) {
+    if (this.dialect.includes('mysql')) {
+      const sql = `ALTER TABLE ${tableName} ${alterations.join(', ')}`;
+      await this.sequelize.query(sql, {
+        type: QueryTypes.RAW,
+        transaction: this.transaction
+      });
+    } else {
+      // SQLite requires separate ALTER statements
+      for (const alteration of alterations) {
+        const sql = `ALTER TABLE ${tableName} ${alteration}`;
+        await this.sequelize.query(sql, {
+          type: QueryTypes.RAW,
+          transaction: this.transaction
+        });
+      }
+    }
+    
+    await this.createTableIndexes(tableName, newFields);
+  }
+}
+```
+
+## Column SQL Generation
+
+Loopar generates appropriate SQL for each field type:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+function generateColumnSQL(field, action, dialect) {
+  const data = field.data;
+  const columnName = escapeId(data.name, dialect);
+  
+  // Auto-increment ID field
+  if ((data.name === 'id' || field.element === 'id') && action === 'create') {
+    if (dialect.includes('mysql')) {
+      return `${columnName} INT UNSIGNED AUTO_INCREMENT PRIMARY KEY`;
+    } else if (dialect.includes('sqlite')) {
+      return `${columnName} INTEGER PRIMARY KEY AUTOINCREMENT`;
+    } else if (dialect.includes('postgres')) {
+      return `${columnName} SERIAL PRIMARY KEY`;
+    }
+  }
+  
+  const type = getSequelizeType(field);
+  const sqlType = sequelizeTypeToSQL(type, field, dialect);
+  let sql = `${columnName} ${sqlType}`;
+  
+  const constraints = [];
+  
+  // NOT NULL constraint
+  if (data.required && data.name !== 'id') {
+    constraints.push('NOT NULL');
+  }
+  
+  // DEFAULT value
+  if (data.default_value !== undefined && data.default_value !== null && data.default_value !== '') {
+    const defaultValue = formatDefaultValue(data.default_value, field, dialect);
+    constraints.push(`DEFAULT ${defaultValue}`);
+  }
+  
+  // UNIQUE constraint
+  if (data.unique && action === 'create') {
+    constraints.push('UNIQUE');
+  }
+  
+  if (constraints.length > 0) {
+    sql += ' ' + constraints.join(' ');
+  }
+  
+  return sql;
+}
+```
+
+## Type Mapping
+
+Loopar maps field types to appropriate SQL types for each database:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+function sequelizeTypeToSQL(type, field, dialect) {
+  const typeString = type?.toString() || 'STRING';
+  
+  if (typeString.includes('INTEGER')) 
+    return dialect.includes('mysql') ? 'INT' : 'INTEGER';
+  
+  if (typeString.includes('BIGINT')) 
+    return 'BIGINT';
+  
+  if (typeString.includes('DECIMAL')) {
+    const precision = field?.data?.precision || 10;
+    const scale = field?.data?.scale || 2;
+    return `DECIMAL(${precision}, ${scale})`;
+  }
+  
+  if (typeString.includes('STRING')) {
+    const length = field?.data?.length || 255;
+    return `VARCHAR(${length})`;
+  }
+  
+  if (typeString.includes('TEXT')) {
+    if (typeString.includes('medium')) return 'MEDIUMTEXT';
+    if (typeString.includes('long')) return 'LONGTEXT';
+    return 'TEXT';
+  }
+  
+  if (typeString.includes('BOOLEAN')) {
+    return dialect.includes('mysql') ? 'BOOLEAN' : 'INTEGER';
+  }
+  
+  if (typeString.includes('DATE')) 
+    return dialect.includes('mysql') ? 'DATETIME' : 'TIMESTAMP';
+  
+  if (typeString.includes('JSON')) {
+    return (dialect.includes('mysql') || dialect.includes('postgres')) 
+      ? 'JSON' : 'TEXT';
+  }
+  
+  return 'VARCHAR(255)';
+}
+```
+
+## Index Management
+
+Loopar automatically creates indexes for fields marked with `index: true` or `unique: true`:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async createTableIndexes(tableName, fields) {
+  if (this.dialect.includes('mysql')) {
+    return; // Indexes created inline for MySQL
+  }
+  
+  const indexQueries = [];
+  
+  const processField = (field) => {
+    if (!fieldIsWritable(field)) return;
+    
+    const data = field.data || {};
+    
+    // Regular index
+    if (data.index && data.name !== 'id') {
+      const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+      const indexName = `idx_${safeTableName}_${data.name}`;
+      const query = `CREATE INDEX IF NOT EXISTS ${indexName} 
+                     ON ${tableName} (${this.escapeId(data.name)})`;
+      indexQueries.push(query);
+    }
+    
+    // Unique index
+    if (data.unique && data.name !== 'id') {
+      const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+      const uniqueName = `uniq_${safeTableName}_${data.name}`;
+      const query = `CREATE UNIQUE INDEX IF NOT EXISTS ${uniqueName} 
+                     ON ${tableName} (${this.escapeId(data.name)})`;
+      indexQueries.push(query);
+    }
+    
+    if (field.elements && Array.isArray(field.elements)) {
+      field.elements.forEach(processField);
+    }
+  };
+  
+  fields.forEach(processField);
+  
+  for (const query of indexQueries) {
+    try {
+      await this.sequelize.query(query, {
+        type: QueryTypes.RAW,
+        transaction: this.transaction
+      });
+    } catch (error) {
+      console.error(`Error creating index: ${query}`, error);
+    }
+  }
+}
+```
+
+## Database Schema Operations
+
+### Check if Table Exists
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async hasTable(tableName) {
+  tableName = this.literalTableName(tableName);
+  try {
+    let query;
+    
+    if (this.dialect.includes('mysql')) {
+      query = `SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+               WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1`;
+    } else if (this.dialect.includes('sqlite')) {
+      query = `SELECT name FROM sqlite_master 
+               WHERE type='table' AND name = ? LIMIT 1`;
+    } else {
+      query = `SELECT 1 FROM information_schema.tables 
+               WHERE table_schema = current_schema() AND table_name = ? LIMIT 1`;
+    }
+
+    const replacements = this.dialect.includes('mysql') 
+      ? [this.database, tableName]
+      : [tableName];
+
+    const result = await this.sequelize.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    });
+    
+    return result && result.length > 0;
+  } catch (error) {
+    console.error('Error checking table existence:', error.message);
+    return false;
+  }
+}
+```
+
+### Get Table Description
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async getTableDescription(document) {
+  const tableName = this.literalTableName(document);
+
+  let query;
+  let mapFunction;
+  
+  if (this.dialect.includes('sqlite')) {
+    query = `PRAGMA table_info('${tableName}')`;
+    mapFunction = (row) => ({
+      name: row.name,
+      type: row.type,
+      nullable: !row.notnull,
+      default: row.dflt_value,
+      primary: row.pk === 1
+    });
+  } else if (this.dialect.includes('mysql')) {
+    query = `DESCRIBE \`${tableName}\``;
+    mapFunction = (row) => ({
+      name: row.Field,
+      type: row.Type,
+      nullable: row.Null === 'YES',
+      default: row.Default,
+      primary: row.Key === 'PRI'
+    });
+  }
+
+  const result = await this.sequelize.query(query, {
+    type: QueryTypes.SELECT
+  });
+  
+  return result.map(mapFunction);
+}
+```
+
+## Database Management
+
+### Create Database
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async alterSchema() {
+  if (this.dialect.includes('sqlite')) {
+    return; // SQLite uses file-based databases
+  }
+
+  try {
+    const query = this.dialect.includes('mysql')
+      ? `CREATE DATABASE IF NOT EXISTS \`${this.database}\` 
+         CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+      : `CREATE DATABASE IF NOT EXISTS "${this.database}"`;
+      
+    await this.coreConnection.query(query, { type: QueryTypes.RAW });
+  } catch (error) {
+    console.error('Database creation error:', error.message);
+    throw error;
+  }
+}
+```
+
+### Drop Database
+
+```javascript packages/db-env/database/core/sequelize/core.js
+async dropSchema(schema) {
+  if (!schema || schema === 'information_schema' || schema === 'mysql') {
+    throw new Error('Cannot drop system database');
+  }
+
+  try {
+    const query = this.dialect.includes('mysql')
+      ? `DROP DATABASE IF EXISTS \`${schema}\``
+      : `DROP DATABASE IF EXISTS "${schema}"`;
+      
+    await this.coreConnection.query(query, { type: QueryTypes.RAW });
+  } catch (error) {
+    console.error('Database drop error:', error.message);
+    throw error;
+  }
+}
+```
+
+## Best Practices
+
+<Tip>
+  - Always use transactions for schema changes
+  - Test schema changes on a development database first
+  - Back up your database before major schema changes
+  - Use field validation to ensure data integrity
+  - Add indexes to frequently queried fields
+</Tip>
+
+## Migration Workflow
+
+1. **Define your Entity structure** with the desired fields
+2. **Save the Entity** - Loopar automatically creates or alters the table
+3. **Verify the schema** by checking the database
+4. **Test your changes** with sample data
+
+```javascript
+// Example: Adding a new field to User entity
+const userEntity = await loopar.getDocument('Entity', 'User');
+
+// Parse existing structure
+const docStructure = JSON.parse(userEntity.doc_structure);
+
+// Add new field
+docStructure[0].elements[0].elements.push({
+  element: "input",
+  data: {
+    name: "phone",
+    label: "Phone Number",
+    format: "phone"
+  }
+});
+
+// Update entity
+userEntity.doc_structure = JSON.stringify(docStructure);
+await userEntity.save();
+
+// Table is automatically altered to include 'phone' column
+```
+
+## Handling Breaking Changes
+
+<Warning>
+  - Renaming fields creates new columns; old data is not migrated
+  - Changing field types may cause data loss
+  - Removing fields does not drop columns automatically
+  - Always back up before making destructive changes
+</Warning>
+
+## Transaction Support
+
+Use transactions for multiple related schema changes:
+
+```javascript
+try {
+  await loopar.db.beginTransaction();
+  
+  // Make multiple schema changes
+  await loopar.db.makeTable('NewEntity', fields1);
+  await loopar.db.makeTable('AnotherEntity', fields2);
+  
+  await loopar.db.endTransaction();
+} catch (error) {
+  await loopar.db.rollbackTransaction();
+  throw error;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Models" icon="cube" href="/database/models">
+    Learn about model definitions
+  </Card>
+  <Card title="Queries" icon="magnifying-glass" href="/database/queries">
+    Query data from your models
+  </Card>
+</CardGroup>

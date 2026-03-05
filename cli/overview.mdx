@@ -1,0 +1,150 @@
+---
+title: CLI Overview
+description: Introduction to Loopar Framework's command-line interface tools
+---
+
+The Loopar CLI provides a powerful set of commands to manage your Loopar applications. It uses PM2 as the underlying process manager to handle multi-site deployments, monitoring, and process management.
+
+## Installation
+
+The Loopar CLI is installed automatically when you install the `loopar` package:
+
+```bash
+npm install loopar
+```
+
+The CLI is available as the `loopar` command, defined in the package.json:
+
+```json
+{
+  "bin": {
+    "loopar": "./bin/loopar-cli.js"
+  }
+}
+```
+
+## Basic Usage
+
+All Loopar CLI commands follow this pattern:
+
+```bash
+loopar <command> [siteName]
+```
+
+<ParamField path="command" type="string" required>
+  The command to execute (dev, start, stop, restart, delete, list, status, logs)
+</ParamField>
+
+<ParamField path="siteName" type="string">
+  Optional site name to target a specific site. If omitted, the command applies to all sites.
+</ParamField>
+
+## How It Works
+
+The Loopar CLI operates within your project directory:
+
+```javascript
+const projectPath = process.cwd();
+const projectName = path.basename(projectPath);
+```
+
+Each site is managed as a PM2 process with the naming convention:
+
+```javascript
+function getProcessName(siteName) {
+  return `${projectName}-${siteName}`;
+}
+```
+
+<Note>
+  All processes are organized under a namespace based on your project name, making it easy to manage multiple Loopar projects on the same system.
+</Note>
+
+## Available Commands
+
+The CLI provides several command categories:
+
+### Development
+- `dev` - Start the development server with hot module replacement
+
+### Process Control
+- `start [siteName]` - Start production server(s)
+- `stop [siteName]` - Stop running server(s)
+- `restart [siteName]` - Restart server(s)
+- `delete [siteName]` - Remove server(s) from PM2
+
+### Monitoring
+- `list` - Display all running sites
+- `status` - Show detailed status information
+- `logs [siteName]` - View real-time logs
+
+## Getting Help
+
+To see available commands, run:
+
+```bash
+loopar help
+loopar --help
+loopar -h
+```
+
+## Process Management
+
+Loopar uses PM2 for process management, which provides:
+
+- **Auto-restart** - Processes automatically restart if they crash
+- **Load balancing** - Multiple instances can be run for high availability
+- **Monitoring** - CPU, memory, and uptime tracking
+- **Log management** - Centralized logging for all processes
+- **Zero-downtime reloads** - Graceful restarts without service interruption
+
+## Project Structure
+
+The CLI expects your project to follow this structure:
+
+```
+project-name/
+├── sites/
+│   ├── dev/
+│   │   ├── .env
+│   │   ├── config/
+│   │   ├── sessions/
+│   │   └── public/
+│   └── [other-sites]/
+└── bin/
+    ├── loopar-cli.js
+    └── loopar.ecosystem.config.mjs
+```
+
+<Note>
+  If no dev site exists when running `loopar dev`, one will be automatically created with default configuration.
+</Note>
+
+## Environment Variables
+
+Each site has its own `.env` file in `sites/<site-name>/.env` with configuration:
+
+```bash
+PORT=3000
+NAME=dev
+TENANT_ID=dev
+NODE_ENV=development
+DOMAIN=
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="code" href="/cli/dev">
+    Learn how to use the dev command for local development
+  </Card>
+  <Card title="Process Control" icon="server" href="/cli/start-stop">
+    Manage your production servers with start, stop, and restart
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/cli/management">
+    Monitor your sites with list, status, and logs commands
+  </Card>
+  <Card title="PM2 Documentation" icon="book" href="https://pm2.keymetrics.io/">
+    Learn more about PM2 process manager
+  </Card>
+</CardGroup>

@@ -1,0 +1,491 @@
+---
+title: Element Editor
+description: Configure component properties, styling, and behavior in the element editor
+---
+
+The Element Editor provides a detailed interface for configuring properties of individual components in your design. When you select an element, the editor displays all available settings organized into logical tabs.
+
+## Opening the Element Editor
+
+There are two ways to open the element editor:
+
+<Steps>
+  <Step title="Click the Edit Icon">
+    Hover over any element in the designer to reveal the edit button (pencil icon)
+  </Step>
+  <Step title="Programmatic Access">
+    Use the `handleEditElement` function from the designer context
+  </Step>
+</Steps>
+
+```jsx
+// From element-title.jsx:33-37
+const handleEditElement = useCallback((e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  designer.handleEditElement(element.data.key);
+}, [designer, element.data?.key]);
+```
+
+## Element Title Bar
+
+Each element in the designer displays a title bar with quick actions:
+
+```jsx
+// From element-title.jsx:24-86
+export const ElementTitle = memo(function ElementTitle({ 
+  element, 
+  active, 
+  isDroppable,
+  ...props 
+}) {
+  const designer = useDesigner();
+  const title = element.elementTitle || element.element || "";
+
+  const handleEditElement = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    designer.handleEditElement(element.data.key);
+  }, [designer, element.data?.key]);
+
+  const handleDeleteElement = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    designer.handleDeleteElement(element.data.key);
+  }, [designer, element.data?.key]);
+
+  return (
+    <span className={cn(
+      "absolute z-10 flex items-center rounded-bl px-1",
+      isDroppable ? "top-0 right-0" : "top-0 right-0 opacity-90",
+      props.className
+    )}>
+      {/* Edit and Delete buttons */}
+      <div className={cn(
+        "flex items-center transition-opacity duration-150 no-drag pr-1",
+        active ? "opacity-100" : "opacity-0 hidden"
+      )}>
+        <div className="px-2 py-0.5 hover:bg-primary/70 cursor-pointer"
+          onClick={handleEditElement}>
+          <PencilIcon className="h-4 w-4 text-gray-400" strokeWidth={2} />
+        </div>
+        <div className="px-2 py-0.5 hover:bg-destructive/70 cursor-pointer"
+          onClick={handleDeleteElement}>
+          <Trash2Icon className="h-4 w-4 text-gray-400" strokeWidth={2} />
+        </div>
+      </div>
+      {/* Element tag */}
+      <span className="text-primary font-semibold italic cursor-pointer leading-none"
+        onClick={handleEditElement}>
+        <ComponentTag name={title} />
+      </span>
+    </span>
+  );
+});
+```
+
+<Note>
+  The title bar only appears when hovering over elements in Designer or Editor mode. It's hidden in Preview mode.
+</Note>
+
+## Editor Interface
+
+The element editor displays organized tabs with all configurable properties:
+
+```jsx
+// From element-editor.jsx:52-189
+export function ElementEditor() {
+  const { updateElement, updatingElement } = useDesigner();
+
+  if (!updatingElement) return null;
+
+  const elementName = updatingElement.element;
+  const data = useMemo(() => {
+    return {...updatingElement.data,};
+  }, [updatingElement.data, elementName]);
+  
+  const Element = __META_COMPONENTS__[elementName]?.default || {};
+
+  typeof data.options === 'object' && (data.options = JSON.stringify(data.options));
+
+  const dontHaveMetaElements = Element.dontHaveMetaElements || []
+
+  const metaFields = useMemo(() => {
+    const genericMetaFields = getMetaFields(data);
+    const selfMetaFields = Element.metaFields && Element.metaFields() || [];
+    return mergeGroups(genericMetaFields, ...selfMetaFields);
+  }, [data, Element]);
+
+  // ... field rendering
+}
+```
+
+### Header Information
+
+The editor displays the element type and unique key:
+
+```jsx
+// From element-editor.jsx:148-152
+<div className="p-3 pb-0">
+  <span className='text-2xl'>{loopar.utils.Capitalize(elementName)}</span> 
+  <span className="text-muted-foreground text-sm">{data.key}</span>
+</div>
+```
+
+## Property Tabs
+
+Properties are organized into tabs based on their purpose. The available tabs depend on the element type:
+
+### Generic Tabs (All Elements)
+
+<Tabs>
+  <Tab title="Form">
+    Basic properties like name, label, key, and visibility settings
+  </Tab>
+  <Tab title="Style">
+    Visual appearance including margins, padding, colors, and custom CSS classes
+  </Tab>
+  <Tab title="Data">
+    Data binding, default values, and validation rules
+  </Tab>
+</Tabs>
+
+### Component-Specific Tabs
+
+Each component can define custom property groups:
+
+```jsx
+// Components can expose custom meta fields
+Element.metaFields = () => [
+  {
+    group: 'advanced',
+    elements: {
+      custom_property: {
+        element: 'input',
+        data: {
+          label: 'Custom Property',
+          name: 'custom_property'
+        }
+      }
+    }
+  }
+];
+```
+
+## Merging Meta Fields
+
+The editor combines generic fields with component-specific fields:
+
+```jsx
+// From element-editor.jsx:14-50
+function mergeGroups(...arrays) {
+  const groupMap = new Map();
+  const flattenedArrays = arrays.flat();
+
+  flattenedArrays.forEach(group => {
+    const groupName = group.group;
+
+    if (!groupMap.has(groupName)) {
+      groupMap.set(groupName, { ...group, elements: { ...group.elements } });
+    } else {
+      const existingGroup = groupMap.get(groupName);
+      const mergedElements = {
+        ...existingGroup.elements,
+        ...group.elements,
+      };
+      groupMap.set(groupName, { ...existingGroup, elements: mergedElements });
+    }
+  });
+  
+  const allElements = new Set();
+
+  flattenedArrays.forEach(group => {
+    Object.keys(group.elements).forEach(elementKey => {
+      if (allElements.has(elementKey)) {
+        groupMap.forEach((mappedGroup, groupName) => {
+          if (groupName !== group.group && mappedGroup.elements[elementKey]) {
+            delete mappedGroup.elements[elementKey];
+          }
+        });
+      } else {
+        allElements.add(elementKey);
+      }
+    });
+  });
+
+  return Array.from(groupMap.values());
+}
+```
+
+This function:
+- Combines multiple arrays of field groups
+- Merges groups with the same name
+- Ensures no duplicate fields across groups
+- Preserves the order of field definitions
+
+## Default Value Editor
+
+For writable fields (form elements), the editor includes a default value preview:
+
+```jsx
+// From element-editor.jsx:75-96
+const metaFieldsData = useMemo(() => {
+  return metaFields.map(({ group, elements }) => {
+    if (group === 'form' && elementsDict[elementName]?.def?.isWritable && 
+        ["designer", "fragment"].includes(elementName) === false) {
+      elements['divider_default'] = (
+        <Separator className="my-3" />
+      );
+  
+      elements['default_value'] = {
+        element: elementName,
+        data: {
+          ...data,
+          key: data.key + "_default",
+          label: "Default",
+          hidden: 0,
+          required: 0,
+        }
+      };
+    }
+  
+    return { group, elements };
+  });
+}, [metaFields, elementName, data]);
+```
+
+<Tip>
+  The default value section renders the actual form element so you can see exactly how it will appear with the default value applied.
+</Tip>
+
+## Auto-Save Functionality
+
+The editor automatically saves changes as you type:
+
+```jsx
+// From element-editor.jsx:111-134
+const prevData = useRef(__FORM_FIELDS__);
+const saveData = (_data) => {
+  if(!prevData.current || isEqual(prevData.current, _data)) return;
+
+  prevData.current = { ..._data };
+
+  function cleanObject(obj) {
+    return Object.fromEntries(
+      Object.entries({...obj}).filter(([_, value]) => value ?? false)
+    );
+  }
+
+  function cleanKey(obj) {
+    return Object.fromEntries(
+      Object.entries({...obj}).map(([key, value]) => [key.replace(data.key, ""), value])
+    );
+  }
+  
+  const newData = cleanKey(_data);
+  newData.key = data.key;
+  newData.value = data.value;
+
+  updateElement(newData.key, cleanObject(newData), false, true);
+};
+```
+
+The save function:
+1. Detects changes using deep equality comparison
+2. Cleans up empty/null values
+3. Removes key prefixes added for uniqueness
+4. Preserves the element's key and value
+5. Updates the element in the metadata tree
+
+<Note>
+  The `isEqual` check prevents unnecessary updates when navigating between elements or when computed values haven't actually changed.
+</Note>
+
+## Rendering Field Editors
+
+```jsx
+// From element-editor.jsx:156-183
+<Tabs data={{ name: "element_editor_tabs" }}>
+  {metaFieldsData.map(({ group, elements }) => (
+    <Tab
+      label={loopar.utils.Capitalize(group)}
+      name={group + "_tab"}
+    >
+      <div className="flex flex-col gap-2">
+        {Object.entries(elements).map(([field, props]) => {
+          if (dontHaveMetaElements.includes(field)) return null;
+          if (!props.element) return props;
+
+          return (
+            <MetaComponent
+              component={props.element}
+              render={Component => (
+                <Component
+                  data={{
+                    ...props.data,
+                    name: data.key + field,
+                    label: props.data?.label || loopar.utils.Capitalize(field.replaceAll("_", " ")),
+                  }}
+                />
+              )}
+            />
+          );
+        })}
+      </div>
+    </Tab>
+  ))}
+</Tabs>
+```
+
+## Form Wrapper Integration
+
+The editor uses a `FormWrapper` to manage field state:
+
+```jsx
+// From element-editor.jsx:142-147
+<FormWrapper
+  key={data.key + updatingElement.__version__ || ""}
+  __DATA__={__FORM_FIELDS__} 
+  onChange={saveData}
+  formRef={formRef}
+>
+  {/* Editor content */}
+</FormWrapper>
+```
+
+The `key` prop includes a version number to force re-rendering when the element changes:
+
+```jsx
+// From base-designer.jsx:196-202
+if (key === updatingElementName && !fromEditor) {
+  setUpdatingElement({
+    ...updatingElement,
+    data: {...data},
+    __version__: (updatingElement.__version__ || 0) + 1
+  });
+}
+```
+
+## Deleting Elements
+
+The delete button triggers a confirmation dialog:
+
+```jsx
+// From base-designer.jsx:226-230
+const handleDeleteElement = (element) => {
+  loopar.confirm("Are you sure you want to delete this element?", () => {
+    deleteElement(element);
+  });
+}
+```
+
+The deletion process recursively removes the element from the metadata tree:
+
+```jsx
+// From base-designer.jsx:205-219
+const deleteElement = (element) => {
+  const removeElement = (elements = metaComponents) => {
+    return elements.filter((el) => {
+      if (el.data.key === element) {
+        return false;
+      } else if (el.elements) {
+        el.elements = removeElement(el.elements);
+      }
+
+      return true;
+    });
+  };
+
+  setMeta(JSON.stringify(removeElement()));
+}
+```
+
+<Warning>
+  Element deletion is permanent and cannot be undone. Always confirm before deleting elements with nested children.
+</Warning>
+
+## Common Properties
+
+Most elements share these common properties:
+
+<ResponseField name="key" type="string" required>
+  Unique identifier for the element. Auto-generated but can be customized.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Field name for form elements. Used as the key in form data submissions.
+</ResponseField>
+
+<ResponseField name="label" type="string">
+  Display label shown to users. Auto-capitalized from the name.
+</ResponseField>
+
+<ResponseField name="hidden" type="boolean">
+  Whether the element should be hidden from view.
+</ResponseField>
+
+<ResponseField name="required" type="boolean">
+  For form fields, whether a value is required before submission.
+</ResponseField>
+
+<ResponseField name="default_value" type="any">
+  Initial value for form fields when creating new records.
+</ResponseField>
+
+<ResponseField name="className" type="string">
+  Custom CSS classes to apply to the element.
+</ResponseField>
+
+## Field Name Validation
+
+The editor validates field names to prevent duplicates:
+
+```jsx
+// From base-designer.jsx:182-192
+if (data.name) {
+  const exist = findElement("name", data.name, selfElements);
+
+  if (exist && exist.data.key !== key) {
+    return loopar.throw(
+      "Duplicate field",
+      `The field with the name: ${data.name} already exists, your current field will keep the name: ${data.name} please check your fields and try again.`,
+      false
+    );
+  }
+}
+```
+
+<Note>
+  Field names must be unique within a form to prevent data conflicts during submission.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Descriptive Names">
+    Give elements meaningful names like `customer_email` instead of `input1` to make your metadata readable.
+  </Accordion>
+  <Accordion title="Set Appropriate Labels">
+    While labels auto-generate from names, customize them for better user experience (e.g., "Customer Email Address").
+  </Accordion>
+  <Accordion title="Configure Validation">
+    For form fields, set required flags, data types, and validation rules to ensure data quality.
+  </Accordion>
+  <Accordion title="Use Default Values">
+    Set sensible defaults to improve user experience and reduce form abandonment.
+  </Accordion>
+  <Accordion title="Keep Keys Stable">
+    Avoid changing element keys after deployment as they're used for data binding and can break existing integrations.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Drag and Drop" icon="hand" href="/designer/drag-and-drop">
+    Learn to rearrange elements
+  </Card>
+  <Card title="Workspace" icon="window" href="/designer/workspace">
+    Explore the designer interface
+  </Card>
+</CardGroup>

@@ -1,0 +1,570 @@
+---
+title: 'BaseDocument Class'
+description: 'Core document class for data models with CRUD operations, validation, list views, and relationship management'
+---
+
+## Overview
+
+The `BaseDocument` class extends `CoreDocument` and provides a complete data model layer for Loopar Framework applications. It handles CRUD operations, field validation, list views, search functionality, and parent-child document relationships.
+
+## Import
+
+```javascript
+import { BaseDocument } from 'loopar';
+```
+
+## Constructor
+
+```javascript
+class MyDocument extends BaseDocument {
+  constructor(props) {
+    super(props);
+  }
+}
+```
+
+## Properties
+
+<ResponseField name="__ENTITY__" type="object">
+  Entity metadata including name, module, doc_structure
+</ResponseField>
+
+<ResponseField name="__DATA__" type="object">
+  Raw document data from database
+</ResponseField>
+
+<ResponseField name="__IS_NEW__" type="boolean">
+  Indicates if document is not yet saved to database
+</ResponseField>
+
+<ResponseField name="__DOCUMENT_NAME__" type="string">
+  Unique identifier of the document
+</ResponseField>
+
+<ResponseField name="__APP__" type="string">
+  Application name that owns this document
+</ResponseField>
+
+<ResponseField name="fields" type="object">
+  Collection of DynamicField instances for each field
+</ResponseField>
+
+## CRUD Operations
+
+### save(options)
+
+Saves the document to the database (insert if new, update if existing).
+
+<ParamField path="options.validate" type="boolean" default="true">
+  Whether to run validation before saving
+</ParamField>
+
+```javascript
+const doc = await loopar.newDocument('User', {
+  name: 'user@example.com',
+  email: 'user@example.com',
+  first_name: 'John'
+});
+
+await doc.save();
+
+// Save without validation
+await doc.save({ validate: false });
+```
+
+**Process Flow:**
+1. Sets unique name if required
+2. Runs validation (unless disabled)
+3. Inserts or updates database record
+4. Handles child table records
+5. Updates document history
+6. Processes file uploads
+
+### delete(options)
+
+Deletes the document from the database.
+
+<ParamField path="options.sofDelete" type="boolean" default="true">
+  Mark as deleted vs permanently remove
+</ParamField>
+
+<ParamField path="options.force" type="boolean" default="false">
+  Force delete even if connected to other documents
+</ParamField>
+
+<ParamField path="options.updateHistory" type="boolean" default="true">
+  Create deletion history entry
+</ParamField>
+
+```javascript
+const user = await loopar.getDocument('User', 'old-user@example.com');
+
+// Soft delete
+await user.delete({ sofDelete: true });
+
+// Hard delete (if no connections)
+await user.delete({ sofDelete: false });
+
+// Force delete (ignores connections)
+await user.delete({ force: true });
+```
+
+## List Views
+
+### getList(options)
+
+Retrieves a paginated list of documents with optional filtering and search.
+
+<ParamField path="options.fields" type="array">
+  Array of field names to retrieve (defaults to fields marked for list view)
+</ParamField>
+
+<ParamField path="options.filters" type="object">
+  Key-value pairs for exact match filtering
+</ParamField>
+
+<ParamField path="options.q" type="object">
+  Search query object with field names and values
+</ParamField>
+
+<ParamField path="options.rowsOnly" type="boolean" default="false">
+  Return only rows without metadata and pagination
+</ParamField>
+
+```javascript
+const userDoc = await loopar.newDocument('User');
+
+const result = await userDoc.getList({
+  fields: ['name', 'email', 'first_name', 'last_name'],
+  filters: { disabled: 0 },
+  q: { first_name: 'John' }
+});
+
+console.log(result.rows); // Array of user records
+console.log(result.pagination); // { page, pageSize, totalPages, totalRecords }
+console.log(result.fields); // Field names
+console.log(result.labels); // Field labels
+```
+
+**Response Structure:**
+```javascript
+{
+  rows: [
+    { id: 1, name: 'user1', email: 'user1@example.com', ... },
+    { id: 2, name: 'user2', email: 'user2@example.com', ... }
+  ],
+  pagination: {
+    page: 1,
+    pageSize: 10,
+    totalPages: 5,
+    totalRecords: 47,
+    sortBy: 'id',
+    sortOrder: 'asc'
+  },
+  fields: ['name', 'email', 'first_name'],
+  labels: ['Name', 'Email', 'First Name'],
+  q: { first_name: 'John' }
+}
+```
+
+### getListToForm(options)
+
+Retrieves document list for form selection (child tables, dropdowns).
+
+<ParamField path="options" type="object">
+  Same options as getList()
+</ParamField>
+
+```javascript
+const items = await doc.getListToForm({
+  filters: { parent_id: 123 },
+  fields: ['name', 'quantity', 'price']
+});
+
+// Returns array of rows directly
+console.log(items); // [{ name: 'Item 1', quantity: 5, ... }]
+```
+
+### getListToSelectElement(q)
+
+Retrieves documents for select/dropdown elements with search.
+
+<ParamField path="q" type="string">
+  Search query string
+</ParamField>
+
+```javascript
+const userDoc = await loopar.newDocument('User');
+const options = await userDoc.getListToSelectElement('john');
+
+console.log(options.rows); // Matching users
+console.log(options.title_fields); // Fields to display
+```
+
+**Response:**
+```javascript
+{
+  title_fields: ['name', 'email'],
+  rows: [
+    { name: 'john@example.com', email: 'john@example.com' },
+    { name: 'johnny@example.com', email: 'johnny@example.com' }
+  ]
+}
+```
+
+## Field Operations
+
+### getFieldListNames()
+
+Returns array of field names configured for list view.
+
+```javascript
+const fields = doc.getFieldListNames();
+// ['name', 'email', 'created_at']
+```
+
+### getFieldListLabels()
+
+Returns array of field labels for list view.
+
+```javascript
+const labels = doc.getFieldListLabels();
+// ['Name', 'Email', 'Created At']
+```
+
+### getFieldSelectNames()
+
+Returns fields used for searching in select elements.
+
+```javascript
+const searchFields = doc.getFieldSelectNames();
+// ['name', 'email', 'first_name']
+```
+
+### getFieldSelectLabels()
+
+Returns fields displayed as title in select elements.
+
+```javascript
+const titleFields = doc.getFieldSelectLabels();
+// ['first_name', 'last_name']
+```
+
+### getValueDescriptive(name)
+
+Retrieves formatted display value for linked document.
+
+<ParamField path="name" type="string" required>
+  Document name to retrieve
+</ParamField>
+
+```javascript
+const description = await doc.getValueDescriptive('john@example.com');
+// 'John - Doe - john@example.com'
+```
+
+## Validation
+
+### validate()
+
+Validates all document fields and linked documents. Throws error if validation fails.
+
+```javascript
+try {
+  await doc.validate();
+} catch (error) {
+  console.error('Validation failed:', error.message);
+}
+```
+
+**Validation Rules:**
+- Required fields must have values
+- Field data types must match
+- Linked documents must exist
+- Select field values must be in allowed options
+
+### validateLinkDocuments()
+
+Validates that all linked documents (SELECT fields) exist and are valid.
+
+```javascript
+const errors = await doc.validateLinkDocuments();
+if (errors.length > 0) {
+  console.error('Link validation errors:', errors);
+}
+```
+
+## Search & Filtering
+
+### buildCondition(q)
+
+Builds Sequelize WHERE conditions from search query.
+
+<ParamField path="q" type="object">
+  Search query with field names as keys
+</ParamField>
+
+```javascript
+const condition = doc.buildCondition({
+  first_name: 'John',
+  email: 'john@example.com',
+  disabled: 0
+});
+
+// Returns Sequelize condition object
+// { [Op.and]: [{ first_name: { [Op.like]: '%John%' }}, ...] }
+```
+
+**Field Handling:**
+- Text fields: Uses LIKE with wildcards (`%value%`)
+- Select/Switch/Checkbox: Exact match
+- Empty values: Ignored
+
+### buildConditionToSelect(q)
+
+Builds conditions specifically for select element searches.
+
+```javascript
+const condition = doc.buildConditionToSelect('john');
+```
+
+### records(condition)
+
+Returns count of records matching condition.
+
+<ParamField path="condition" type="object">
+  Sequelize WHERE condition
+</ParamField>
+
+```javascript
+const totalUsers = await userDoc.records({ disabled: 0 });
+console.log(`Active users: ${totalUsers}`);
+```
+
+## Relationships
+
+### getConnectedDocuments()
+
+Returns all documents that reference this document.
+
+```javascript
+const connections = await doc.getConnectedDocuments();
+// [
+//   { entity: 'Order', name: 'ORD-001' },
+//   { entity: 'Task', name: 'TASK-123' }
+// ]
+```
+
+Useful for:
+- Preventing deletion of referenced documents
+- Displaying related records
+- Cascade operations
+
+### getChildValues(field)
+
+Retrieves child table records for a form table field.
+
+<ParamField path="field" type="string" required>
+  Field name of the form table
+</ParamField>
+
+```javascript
+const items = await doc.getChildValues('order_items');
+console.log(items); // Array of child records
+```
+
+### getChildRawValues(field)
+
+Retrieves raw child table data without formatting.
+
+```javascript
+const rawItems = await doc.getChildRawValues('order_items');
+```
+
+### deleteChildRecords(force)
+
+Deletes all child table records for this document.
+
+<ParamField path="force" type="boolean" default="false">
+  Force deletion even without child values
+</ParamField>
+
+```javascript
+await doc.deleteChildRecords(true);
+```
+
+## Data Access
+
+### values(raw)
+
+Returns formatted document values.
+
+<ParamField path="raw" type="boolean" default="false">
+  Return raw values without formatting
+</ParamField>
+
+```javascript
+const values = await doc.values();
+// {
+//   name: 'user@example.com',
+//   password: '********',  // Protected
+//   created_at: '2024-01-15T10:30:00'
+// }
+
+const rawValues = await doc.values(true);
+// { password: 'actual_hash_value', ... }
+```
+
+### rawValues()
+
+Returns raw document data.
+
+```javascript
+const data = await doc.rawValues();
+```
+
+### stringifyValues
+
+Gets string-formatted values for database insertion.
+
+```javascript
+const dbValues = doc.stringifyValues;
+```
+
+### formattedValues
+
+Gets display-formatted values.
+
+```javascript
+const formatted = doc.formattedValues;
+```
+
+## History
+
+### updateHistory(action)
+
+Creates a history entry for the document.
+
+<ParamField path="action" type="string">
+  Action type: 'Created', 'Updated', 'Deleted'
+</ParamField>
+
+```javascript
+await doc.updateHistory('Updated');
+```
+
+History tracks:
+- User who made the change
+- Timestamp
+- Action type
+- Document state
+
+## Lifecycle Hooks
+
+Override these methods in your subclass:
+
+```javascript
+class CustomDocument extends BaseDocument {
+  async onLoad() {
+    // Called after document is loaded
+  }
+  
+  async beforeSave() {
+    // Called before save
+  }
+  
+  async afterSave() {
+    // Called after save
+  }
+  
+  async beforeDelete() {
+    // Called before delete
+  }
+  
+  async afterDelete() {
+    // Called after delete
+  }
+}
+```
+
+## Example: Custom Document
+
+```javascript
+import { BaseDocument } from 'loopar';
+
+class Order extends BaseDocument {
+  constructor(props) {
+    super(props);
+  }
+  
+  async validate() {
+    await super.validate();
+    
+    // Custom validation
+    if (this.total < 0) {
+      loopar.throw('Order total cannot be negative');
+    }
+  }
+  
+  async save() {
+    // Calculate total before saving
+    const items = await this.getChildValues('order_items');
+    this.total = items.reduce((sum, item) => 
+      sum + (item.quantity * item.price), 0
+    );
+    
+    await super.save();
+  }
+}
+
+export default Order;
+```
+
+## Complete Example
+
+```javascript
+import { loopar } from 'loopar';
+
+// Create new document
+const order = await loopar.newDocument('Order', {
+  customer: 'john@example.com',
+  order_date: new Date(),
+  status: 'Draft'
+});
+
+// Add child items
+order.order_items = [
+  { item: 'Product A', quantity: 2, price: 50.00 },
+  { item: 'Product B', quantity: 1, price: 75.00 }
+];
+
+// Save with validation
+await order.save();
+
+// Retrieve and update
+const existingOrder = await loopar.getDocument('Order', order.name);
+existingOrder.status = 'Submitted';
+await existingOrder.save();
+
+// List orders
+const orders = await loopar.getList('Order', {
+  filters: { status: 'Submitted' },
+  q: { customer: 'john' }
+});
+
+console.log(`Found ${orders.pagination.totalRecords} orders`);
+
+// Delete with connection check
+const checkConnections = await order.getConnectedDocuments();
+if (checkConnections.length === 0) {
+  await order.delete();
+} else {
+  console.log('Cannot delete: order has connections');
+}
+```
+
+## Related
+
+- [Loopar Core](/api/loopar) - Main framework class
+- [BaseController](/api/base-controller) - Controller for routing
+- [File Manager](/api/file-manager) - File operations

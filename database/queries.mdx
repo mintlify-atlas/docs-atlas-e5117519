@@ -1,0 +1,442 @@
+---
+title: Queries
+description: Query data using Loopar's ORM methods and Sequelize operators
+---
+
+# Queries
+
+Loopar provides a rich set of methods for querying data from the database, built on top of Sequelize ORM.
+
+## Basic Query Methods
+
+### Get a Single Document
+
+Retrieve a single document by name:
+
+```javascript
+// Get a User by name
+const user = await loopar.getDocument('User', 'john@example.com');
+
+console.log(user.name);  // "John Doe"
+console.log(user.email); // "john@example.com"
+```
+
+### Get Document with Specific Fields
+
+```javascript packages/loopar/core/document/base-document.js
+// Get only specific fields
+const user = await loopar.db.getDoc('User', 'john@example.com', ['name', 'email']);
+
+console.log(user); // { name: "John Doe", email: "john@example.com" }
+```
+
+### Get a List of Documents
+
+```javascript
+// Get list with default pagination
+const result = await loopar.getList('User');
+
+console.log(result.rows);       // Array of user records
+console.log(result.pagination); // Pagination info
+console.log(result.fields);     // Field names
+console.log(result.labels);     // Field labels
+```
+
+### Get List with Filters
+
+```javascript
+// Get users with filters
+const result = await loopar.getList('User', {
+  filters: {
+    disabled: 0
+  },
+  fields: ['name', 'email', 'created_at'],
+  rowsOnly: false
+});
+```
+
+## Query Builder
+
+The query builder provides a fluent interface for building complex queries:
+
+```javascript
+// Using the query builder
+const users = await loopar.db.query('User')
+  .where({ disabled: 0 })
+  .orWhere({ email: 'admin@example.com' })
+  .select('name', 'email', 'password', 'disabled', 'profile_picture')
+  .first();
+```
+
+## Using Sequelize Operators
+
+Loopar supports all Sequelize operators through the `Op` object:
+
+```javascript packages/loopar/core/document/base-document.js
+import { Op } from '@sequelize/core';
+
+// Like operator (partial match)
+const users = await loopar.db.getList('User', ['*'], {
+  name: { [Op.like]: '%John%' }
+});
+
+// Not equal operator
+const activeUsers = await loopar.db.getList('User', ['*'], {
+  disabled: { [Op.ne]: 1 }
+});
+
+// In operator
+const selectedUsers = await loopar.db.getList('User', ['*'], {
+  name: { [Op.in]: ['user1', 'user2', 'user3'] }
+});
+
+// And operator
+const filteredUsers = await loopar.db.getList('User', ['*'], {
+  [Op.and]: [
+    { disabled: 0 },
+    { email: { [Op.like]: '%@example.com' } }
+  ]
+});
+```
+
+## Available Operators
+
+<ResponseField name="Op.eq" type="operator">
+  Equal to (default behavior)
+</ResponseField>
+
+<ResponseField name="Op.ne" type="operator">
+  Not equal to
+</ResponseField>
+
+<ResponseField name="Op.like" type="operator">
+  Pattern matching (SQL LIKE)
+</ResponseField>
+
+<ResponseField name="Op.in" type="operator">
+  Value in array
+</ResponseField>
+
+<ResponseField name="Op.and" type="operator">
+  Combine conditions with AND
+</ResponseField>
+
+<ResponseField name="Op.or" type="operator">
+  Combine conditions with OR
+</ResponseField>
+
+## Database-Level Methods
+
+### Get Value
+
+Get a specific field value from a document:
+
+```javascript packages/db-env/database/sequelize.js
+// Get a single field value
+const email = await loopar.db.getValue('User', 'email', 'john@example.com');
+
+console.log(email); // "john@example.com"
+
+// Get value with condition object
+const email = await loopar.db.getValue('User', 'email', { 
+  name: 'john@example.com' 
+});
+```
+
+### Get Row
+
+Get a single row as an object:
+
+```javascript packages/db-env/database/sequelize.js
+// Get a row with specific fields
+const user = await loopar.db.getRow('User', 'john@example.com', 
+  ['name', 'email', 'disabled']
+);
+
+console.log(user); 
+// { name: "John Doe", email: "john@example.com", disabled: 0 }
+```
+
+### Get List
+
+Get multiple rows with pagination:
+
+```javascript packages/db-env/database/sequelize.js
+// Get list with pagination
+const users = await loopar.db.getList(
+  'User',
+  ['name', 'email', 'disabled'],
+  { disabled: 0 }
+);
+
+console.log(users); // Array of user objects
+```
+
+### Get All
+
+Get all rows without pagination:
+
+```javascript packages/db-env/database/sequelize.js
+// Get all users
+const allUsers = await loopar.db.getAll(
+  'User',
+  ['name', 'email'],
+  { disabled: 0 }
+);
+
+console.log(allUsers); // Array of all matching users
+```
+
+### Count Records
+
+Count matching records:
+
+```javascript packages/db-env/database/sequelize.js
+// Count active users
+const count = await loopar.db.count('User', { disabled: 0 });
+
+console.log(count); // Number of active users
+
+// Count all users
+const totalUsers = await loopar.db.count('User', {});
+```
+
+## BaseDocument Query Methods
+
+### getList
+
+Get a paginated list with metadata:
+
+```javascript packages/loopar/core/document/base-document.js
+const user = await loopar.newDocument('User');
+
+const result = await user.getList({
+  fields: ['name', 'email', 'disabled'],
+  filters: { disabled: 0 },
+  q: { name: 'John' },
+  rowsOnly: false
+});
+
+console.log(result.rows);       // Array of records
+console.log(result.pagination); // Pagination metadata
+console.log(result.fields);     // Field names
+console.log(result.labels);     // Field labels
+```
+
+### getListToSelectElement
+
+Get a list formatted for select dropdowns:
+
+```javascript packages/loopar/core/document/base-document.js
+const user = await loopar.newDocument('User');
+
+const options = await user.getListToSelectElement('john');
+
+console.log(options.rows);         // Array of options
+console.log(options.title_fields); // Fields to display
+```
+
+### records
+
+Get the total count of records:
+
+```javascript packages/loopar/core/document/base-document.js
+const user = await loopar.newDocument('User');
+
+const count = await user.records({ disabled: 0 });
+
+console.log(count); // Total number of active users
+```
+
+## Building Conditions
+
+### Simple Conditions
+
+```javascript
+// Equal condition
+const condition = { name: 'John Doe' };
+
+// Multiple conditions (AND)
+const condition = {
+  disabled: 0,
+  email: 'john@example.com'
+};
+```
+
+### Complex Conditions
+
+```javascript packages/loopar/core/document/base-document.js
+import { Op } from '@sequelize/core';
+
+// Combine multiple conditions
+function combineSequelizeConditions(...conditions) {
+  const validConditions = conditions.filter(cond => {
+    if (!cond || typeof cond !== 'object' || Array.isArray(cond)) {
+      return false;
+    }
+    
+    const hasNormalKeys = Object.keys(cond).length > 0;
+    const hasSymbols = Object.getOwnPropertySymbols(cond).length > 0;
+    
+    return hasNormalKeys || hasSymbols;
+  });
+  
+  if (validConditions.length === 0) return {};
+  if (validConditions.length === 1) return validConditions[0];
+  
+  return { [Op.and]: validConditions };
+}
+
+// Usage
+const condition = combineSequelizeConditions(
+  { disabled: 0 },
+  { email: { [Op.like]: '%@example.com' } }
+);
+```
+
+### Search Conditions
+
+```javascript packages/loopar/core/document/base-document.js
+const user = await loopar.newDocument('User');
+
+// Build search condition from query object
+const condition = user.buildCondition({
+  name: 'John',
+  email: 'example.com'
+});
+
+// Results in:
+// {
+//   [Op.and]: [
+//     { name: { [Op.like]: '%John%' } },
+//     { email: { [Op.like]: '%example.com%' } }
+//   ]
+// }
+```
+
+## Pagination
+
+Pagination is handled automatically for list queries:
+
+```javascript packages/db-env/database/sequelize.js
+// Set pagination
+loopar.db.pagination = {
+  page: 1,
+  pageSize: 10,
+  totalPages: 4,
+  totalRecords: 35,
+  sortBy: "id",
+  sortOrder: "asc"
+};
+
+// Get paginated list
+const users = await loopar.db.getList('User', ['*']);
+```
+
+## Raw SQL Queries
+
+For complex queries, you can execute raw SQL:
+
+```javascript packages/db-env/database/core/sequelize/core.js
+import { QueryTypes } from '@sequelize/core';
+
+// Execute raw query
+const result = await loopar.db.raw(
+  'SELECT * FROM tblUser WHERE disabled = ?',
+  [0],
+  { type: QueryTypes.SELECT }
+);
+
+console.log(result); // Array of results
+```
+
+## Query Examples
+
+### Get User by Email
+
+```javascript
+const user = await loopar.db.query('User')
+  .where({ email: 'john@example.com' })
+  .select('name', 'email', 'password', 'disabled')
+  .first();
+```
+
+### Search Users by Name
+
+```javascript
+import { Op } from '@sequelize/core';
+
+const users = await loopar.db.getList('User', ['name', 'email'], {
+  name: { [Op.like]: '%John%' }
+});
+```
+
+### Get Active Users Created This Month
+
+```javascript
+import { Op } from '@sequelize/core';
+import dayjs from 'dayjs';
+
+const startOfMonth = dayjs().startOf('month').format('YYYY-MM-DD');
+
+const users = await loopar.db.getList('User', ['*'], {
+  [Op.and]: [
+    { disabled: 0 },
+    { created_at: { [Op.gte]: startOfMonth } }
+  ]
+});
+```
+
+### Get Users with Specific Roles
+
+```javascript
+import { Op } from '@sequelize/core';
+
+const users = await loopar.db.getList('User', ['name', 'email'], {
+  role: { [Op.in]: ['Admin', 'Manager', 'Supervisor'] }
+});
+```
+
+## Performance Tips
+
+<Tip>
+  - Always select only the fields you need instead of using `['*']`
+  - Use indexes on frequently queried fields
+  - Use pagination for large datasets
+  - Avoid N+1 queries by fetching related data in a single query
+  - Use `getAll` only when you need all records
+</Tip>
+
+## Error Handling
+
+```javascript
+try {
+  const user = await loopar.getDocument('User', 'john@example.com');
+  console.log(user);
+} catch (error) {
+  console.error('User not found:', error.message);
+}
+
+// Using ifNotFound option
+const user = await loopar.getDocument(
+  'User', 
+  'john@example.com',
+  null,
+  { ifNotFound: null }
+);
+
+if (user === null) {
+  console.log('User not found');
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Models" icon="cube" href="/database/models">
+    Learn about model definitions
+  </Card>
+  <Card title="Migrations" icon="arrow-right-arrow-left" href="/database/migrations">
+    Manage schema changes
+  </Card>
+</CardGroup>

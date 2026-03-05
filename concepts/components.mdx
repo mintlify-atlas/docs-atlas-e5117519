@@ -1,0 +1,723 @@
+---
+title: Components
+description: Build dynamic user interfaces with Loopar's comprehensive React component system and metadata-driven rendering
+---
+
+## Overview
+
+Loopar's component system provides a rich set of React components for building user interfaces. Components are organized into categories and support metadata-driven rendering, allowing you to define UIs through JSON structures that are automatically rendered on both server and client.
+
+## Component Categories
+
+Components are organized into four main categories:
+
+<CardGroup cols={2}>
+  <Card title="Layout Elements" icon="layout-grid">
+    Structural components like sections, rows, columns, cards
+  </Card>
+  <Card title="Form Elements" icon="forms">
+    Input fields, selects, checkboxes, text editors
+  </Card>
+  <Card title="Design Elements" icon="palette">
+    Images, buttons, icons, typography, galleries
+  </Card>
+  <Card title="HTML Elements" icon="code">
+    Raw HTML, custom blocks, iframes
+  </Card>
+</CardGroup>
+
+## Element Definitions
+
+All components are defined in a central registry:
+
+```javascript packages/loopar/core/global/element-definition.js
+export const ELEMENT_GROUPS = Object.freeze({
+  LAYOUT_ELEMENT: 'layout',
+  DESIGN_ELEMENT: 'design',
+  FORM_ELEMENT: 'form',
+  HTML_ELEMENT: 'html'
+});
+
+export const elementsDefinition = {
+  [LAYOUT_ELEMENT]: [
+    { element: "section", icon: "GalleryVertical" },
+    { element: "div", icon: "Code" },
+    { element: "row", icon: "Columns2" },
+    { element: "col", icon: "Columns" },
+    { element: "card", icon: "PanelTop" },
+    { element: "tabs", icon: "AppWindow" },
+    { element: "panel", icon: "PanelBottom" },
+  ],
+  [DESIGN_ELEMENT]: [
+    { element: "image", icon: "Image" },
+    { element: "button", icon: "MousePointer" },
+    { element: "icon", icon: "Boxes" },
+    { element: "title", icon: "Heading1" },
+    { element: "subtitle", icon: "Heading2" },
+    { element: "paragraph", icon: "Pilcrow" },
+    { element: "markdown", icon: "BookOpenCheck", designerOnly: true },
+  ],
+  [FORM_ELEMENT]: [
+    { element: "input", icon: "FormInput", type: TYPES.string },
+    { element: "password", icon: "Asterisk", type: TYPES.text },
+    { element: "date", icon: "Calendar", type: TYPES.date, format: 'YYYY-MM-DD' },
+    { element: "date_time", icon: "CalendarClock", type: TYPES.dateTime },
+    { element: "select", icon: "ChevronDown", type: TYPES.text },
+    { element: "textarea", icon: "FileText", type: TYPES.longtext },
+    { element: "checkbox", icon: "CheckSquare", type: TYPES.integer },
+    { element: "switch", icon: "ToggleLeft", type: TYPES.integer },
+    { element: "form_table", icon: "Sheet", type: TYPES.string },
+    { element: "designer", icon: "Brush", type: TYPES.longtext },
+    { element: "file_input", icon: "FileInput", type: TYPES.longtext },
+    { element: "image_input", icon: "FileImage", type: TYPES.longtext },
+    { element: "color_picker", icon: "Palette", type: TYPES.text },
+  ]
+}
+```
+
+## Form Components
+
+### Input Component
+
+The base input component with multiple format support:
+
+```jsx packages/loopar/src/components/input.jsx
+import BaseInput from "@base-input";
+import { FormLabel, invalidClass } from "./input/index.js";
+import { Input as FormInput } from "@cn/components/ui/input";
+import { inputType } from '@global/element-definition'
+
+export default function Input(props) {
+  const { renderInput, data } = BaseInput(props);
+  const type = props.type || inputType[(data?.format || "data").toLowerCase()] || "text";
+  
+  const _type = type == "number" ? {
+    type: type,
+    min: typeof data.min != "undefined" ? data.min : -Infinity,
+    max: typeof data.max != "undefined" ? data.max : Infinity,
+  } : { type };
+
+  return renderInput((field) => {
+    return (
+      <>
+        <FormLabel {...props} field={field} />
+        <FormControl>
+          <FormInput
+            placeholder={data.placeholder || data.label}
+            {...field}
+            {..._type}
+            className={field.isInvalid ? invalidClass.border : ""}
+          />
+        </FormControl>
+        {(data.description) && <FormDescription>
+          {data.description}
+        </FormDescription>}
+      </>
+    )
+  });
+}
+
+Input.metaFields = () => {
+  return [
+    ...BaseInput.metaFields(),
+    [{
+      group: "form",
+      elements: {
+        format: {
+          element: SELECT,
+          data: {
+            options: Object.entries(inputType).map(([value]) => ({ 
+              value, 
+              label: value.charAt(0).toUpperCase() + value.slice(1) 
+            })),
+            selected: "data",
+          },
+        },
+        min: { element: "input", data: { format: "int" } },
+        max: { element: "input", data: { format: "int" } },
+        not_validate_type: { element: SWITCH },
+      }
+    }]
+  ]
+}
+```
+
+### Input Formats
+
+<Tabs>
+  <Tab title="Text">
+    ```jsx
+    {
+      element: "input",
+      data: {
+        name: "username",
+        label: "Username",
+        format: "text",
+        placeholder: "Enter username"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Email">
+    ```jsx
+    {
+      element: "input",
+      data: {
+        name: "email",
+        label: "Email Address",
+        format: "email",
+        required: true
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Number">
+    ```jsx
+    {
+      element: "input",
+      data: {
+        name: "age",
+        label: "Age",
+        format: "int",
+        min: 18,
+        max: 100
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Currency">
+    ```jsx
+    {
+      element: "input",
+      data: {
+        name: "price",
+        label: "Price",
+        format: "currency"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Button Component
+
+```jsx packages/loopar/src/components/button.jsx
+import { Button } from "@cn/components/ui/button";
+import { useDocument } from "@context/@/document-context";
+
+const buttons = {
+  primary: "primary",
+  secondary: "secondary",
+  default: "default",
+  ghost: "ghost",
+  destructive: "destructive",
+};
+
+export default function MetaButton(props) {
+  const data = props.data || {};
+  const { docRef } = useDocument();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    
+    if (data.action && docRef) {
+      if (!docRef[data.action]) {
+        loopar.throw("Action not Defined", `Action ${data.action} not found in model`);
+      }
+      docRef[data.action]();
+    }
+  }
+
+  const getVariant = () => {
+    return buttons[data.variant] || buttons.default;
+  }
+
+  return (
+    <Button
+      {...loopar.utils.renderizableProps(props)}
+      variant={getVariant()}
+      onClick={handleClick}
+      className={props.className}
+    >
+      {data.label || "Button"}
+    </Button>
+  );
+}
+
+MetaButton.metaFields = () => {
+  return [{
+    group: "form",
+    elements: {
+      action: {
+        element: INPUT,
+        data: {
+          description: "Define action like save, print... button will call action function",
+        },
+      },
+      variant: {
+        element: SELECT,
+        data: {
+          options: Object.keys(buttons).map((button) => {
+            return { option: button, value: buttons[button] };
+          }),
+        },
+      },
+    },
+  }];
+}
+```
+
+## Layout Components
+
+### Section & Row
+
+```jsx
+// Section component wraps content in a semantic section
+{
+  element: "section",
+  elements: [
+    {
+      element: "row",
+      elements: [
+        {
+          element: "col",
+          data: { col: 6 },
+          elements: [
+            { element: "input", data: { name: "first_name", label: "First Name" } }
+          ]
+        },
+        {
+          element: "col",
+          data: { col: 6 },
+          elements: [
+            { element: "input", data: { name: "last_name", label: "Last Name" } }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Card Component
+
+```jsx
+{
+  element: "card",
+  data: {
+    title: "User Information",
+    description: "Basic user details"
+  },
+  elements: [
+    { element: "input", data: { name: "name", label: "Name" } },
+    { element: "input", data: { name: "email", label: "Email", format: "email" } }
+  ]
+}
+```
+
+### Tabs Component
+
+```jsx
+{
+  element: "tabs",
+  elements: [
+    {
+      element: "tab",
+      data: { label: "General" },
+      elements: [
+        { element: "input", data: { name: "title", label: "Title" } }
+      ]
+    },
+    {
+      element: "tab",
+      data: { label: "Settings" },
+      elements: [
+        { element: "switch", data: { name: "enabled", label: "Enabled" } }
+      ]
+    }
+  ]
+}
+```
+
+## Design Components
+
+### Typography
+
+<CodeGroup>
+```jsx Title
+{
+  element: "title",
+  data: {
+    text: "Welcome to Loopar",
+    level: "h1"
+  }
+}
+```
+
+```jsx Subtitle
+{
+  element: "subtitle",
+  data: {
+    text: "Build amazing applications",
+    level: "h2"
+  }
+}
+```
+
+```jsx Paragraph
+{
+  element: "paragraph",
+  data: {
+    text: "Loopar is a full-stack framework for building data-driven applications."
+  }
+}
+```
+</CodeGroup>
+
+### Image Component
+
+```jsx
+{
+  element: "image",
+  data: {
+    src: "/assets/public/images/logo.png",
+    alt: "Loopar Logo",
+    width: 200,
+    height: 100
+  }
+}
+```
+
+### Icon Component
+
+```jsx
+{
+  element: "icon",
+  data: {
+    icon: "User",  // Lucide icon name
+    size: 24,
+    color: "primary"
+  }
+}
+```
+
+## Metadata-Driven Rendering
+
+Loopar uses JSON metadata to define entire UIs:
+
+```javascript
+const formStructure = [
+  {
+    element: "row",
+    elements: [
+      {
+        element: "col",
+        data: { col: 6 },
+        elements: [
+          {
+            element: "input",
+            data: {
+              name: "first_name",
+              label: "First Name",
+              required: true,
+              placeholder: "Enter first name"
+            }
+          },
+          {
+            element: "input",
+            data: {
+              name: "email",
+              label: "Email",
+              format: "email",
+              required: true
+            }
+          }
+        ]
+      },
+      {
+        element: "col",
+        data: { col: 6 },
+        elements: [
+          {
+            element: "input",
+            data: {
+              name: "last_name",
+              label: "Last Name",
+              required: true
+            }
+          },
+          {
+            element: "select",
+            data: {
+              name: "role",
+              label: "Role",
+              options: "Admin\nUser\nGuest"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    element: "row",
+    elements: [
+      {
+        element: "col",
+        elements: [
+          {
+            element: "button",
+            data: {
+              label: "Save",
+              variant: "primary",
+              action: "save"
+            }
+          }
+        ]
+      }
+    ]
+  }
+];
+```
+
+## Component Metadata
+
+Components can define their own metadata fields:
+
+```javascript
+Input.metaFields = () => {
+  return [
+    ...BaseInput.metaFields(),
+    [{
+      group: "form",
+      elements: {
+        format: {
+          element: SELECT,
+          data: {
+            options: Object.entries(inputType).map(([value]) => ({ 
+              value, 
+              label: value.charAt(0).toUpperCase() + value.slice(1) 
+            }))
+          }
+        },
+        min: { element: "input", data: { format: "int" } },
+        max: { element: "input", data: { format: "int" } },
+        placeholder: { element: "input" },
+        description: { element: "textarea" },
+        required: { element: SWITCH },
+        readonly: { element: SWITCH },
+        hidden: { element: SWITCH }
+      }
+    }]
+  ]
+}
+```
+
+## Data Types
+
+Components map to database types:
+
+```javascript
+export const TYPES = Object.freeze({
+  increments: 'increments',
+  integer: 'INTEGER',
+  bigInteger: 'BIGINT',
+  float: 'FLOAT',
+  decimal: 'DECIMAL',
+  string: 'STRING',           // VARCHAR(255)
+  text: 'TEXT',
+  mediumtext: 'TEXT.medium',
+  longtext: 'TEXT.long',
+  uuid: 'UUID',
+  boolean: 'BOOLEAN',
+  date: 'DATEONLY',
+  dateTime: 'DATE',
+  time: 'TIME',
+  json: 'JSON',
+});
+```
+
+## Form Table Component
+
+For child table relationships:
+
+```jsx
+{
+  element: "form_table",
+  data: {
+    name: "items",
+    label: "Order Items",
+    options: "Order Item"  // Child document type
+  }
+}
+```
+
+The child document is automatically managed with parent-child relationship.
+
+## File Components
+
+<Tabs>
+  <Tab title="File Input">
+    ```jsx
+    {
+      element: "file_input",
+      data: {
+        name: "attachments",
+        label: "Attachments",
+        multiple: true
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Image Input">
+    ```jsx
+    {
+      element: "image_input",
+      data: {
+        name: "profile_picture",
+        label: "Profile Picture",
+        maxSize: 5242880  // 5MB
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Designer Component
+
+The designer allows visual editing of component structures:
+
+```jsx
+{
+  element: "designer",
+  data: {
+    name: "doc_structure",
+    label: "Page Layout"
+  }
+}
+```
+
+<Note>
+  The designer component is used to build entities, pages, and forms visually within the Loopar framework itself.
+</Note>
+
+## Custom Components
+
+Create custom components:
+
+```jsx
+import { useDocument } from "@context/@/document-context";
+
+export default function CustomWidget(props) {
+  const { data } = props;
+  const { docRef } = useDocument();
+
+  return (
+    <div className="custom-widget">
+      <h3>{data.title}</h3>
+      <p>{data.content}</p>
+      {data.showButton && (
+        <button onClick={() => docRef.customAction()}>
+          {data.buttonLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+CustomWidget.metaFields = () => {
+  return [{
+    group: "custom",
+    elements: {
+      title: { element: INPUT },
+      content: { element: TEXTAREA },
+      showButton: { element: SWITCH },
+      buttonLabel: { element: INPUT }
+    }
+  }];
+}
+
+// Register component
+CustomWidget.droppable = true;
+```
+
+## Component Props
+
+All components receive standard props:
+
+```javascript
+props = {
+  data: {           // Field configuration
+    name: string,
+    label: string,
+    placeholder: string,
+    required: boolean,
+    readonly: boolean,
+    hidden: boolean,
+    description: string
+  },
+  element: string,  // Component type
+  elements: [],     // Child elements
+  className: string,
+  meta: {}         // Additional metadata
+}
+```
+
+## Validation
+
+Components support automatic validation:
+
+```javascript
+validatorRules() {
+  var type = (this.element === INPUT ? this.data.format || this.element : this.element) || 'text';
+  type = type.charAt(0).toUpperCase() + type.slice(1);
+
+  if (this['is' + type]) {
+    return this['is' + type]();
+  }
+
+  return { valid: true };
+}
+
+isEmail() {
+  var regex = /^[^@]+@[^@]+\.[^@]+$/;
+  return {
+    valid: regex.test(this.value),
+    message: 'Invalid email address'
+  }
+}
+```
+
+## Best Practices
+
+<Warning>
+  **Component Guidelines**
+  
+  - Always provide unique `name` for form elements
+  - Use appropriate data types for database mapping
+  - Implement validation for user inputs
+  - Follow accessibility standards (ARIA labels)
+</Warning>
+
+<Tip>
+  **Performance Tips**
+  
+  - Use `metaFields()` to define configurable properties
+  - Implement lazy loading for heavy components
+  - Memoize expensive computations
+  - Use React hooks efficiently
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Documents" icon="database" href="/concepts/documents">
+    Learn how components map to document fields
+  </Card>
+  <Card title="Controllers" icon="code" href="/concepts/controllers">
+    Understand how controllers render components
+  </Card>
+</CardGroup>
