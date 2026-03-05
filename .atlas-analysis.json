@@ -1,0 +1,151 @@
+{
+  "projectType": "framework",
+  "projectName": "Loopar Framework",
+  "projectDescription": "A drag-and-drop JavaScript framework for building full-stack applications with visual design tools and extensible architecture.",
+  "theme": "maple",
+  "primaryColor": "#FF6B35",
+  "lightColor": "#FFB88C",
+  "darkColor": "#C44B25",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "project-structure"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/documents",
+              "concepts/controllers",
+              "concepts/components",
+              "concepts/routing",
+              "concepts/modules"
+            ]
+          },
+          {
+            "group": "Visual Designer",
+            "pages": [
+              "designer/overview",
+              "designer/drag-and-drop",
+              "designer/element-editor",
+              "designer/workspace"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/overview",
+              "components/layout",
+              "components/forms",
+              "components/data-display",
+              "components/custom"
+            ]
+          },
+          {
+            "group": "Database",
+            "pages": [
+              "database/overview",
+              "database/models",
+              "database/queries",
+              "database/migrations"
+            ]
+          },
+          {
+            "group": "Building Applications",
+            "pages": [
+              "guides/creating-modules",
+              "guides/controllers-guide",
+              "guides/authentication",
+              "guides/file-management",
+              "guides/theming"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/overview",
+              "cli/dev",
+              "cli/start-stop",
+              "cli/management"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/loopar",
+              "api/base-document",
+              "api/base-controller",
+              "api/file-manager"
+            ]
+          },
+          {
+            "group": "Controllers",
+            "pages": [
+              "api/controllers/single-controller",
+              "api/controllers/page-controller",
+              "api/controllers/form-controller",
+              "api/controllers/view-controller",
+              "api/controllers/report-controller"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/helpers",
+              "api/date-utils",
+              "api/element-definition"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Visual drag-and-drop designer for building UIs without code",
+    "Component-based architecture with 40+ pre-built UI components",
+    "Full-stack framework with server-side rendering and client-side routing",
+    "Database ORM integration with Sequelize supporting MySQL, MariaDB, and SQLite",
+    "Extensible module system for creating custom applications",
+    "CLI tools for project management and deployment",
+    "Built-in authentication and session management",
+    "Theme customization with Tailwind CSS integration",
+    "File management and media handling",
+    "Multi-tenant architecture support"
+  ],
+  "publicApiSurface": [
+    "loopar - Core framework instance",
+    "BaseDocument - Base class for data models",
+    "BaseController - Base class for controllers",
+    "SingleController - Controller for single record views",
+    "PageController - Controller for static pages",
+    "FormController - Controller for forms",
+    "ViewController - Controller for list views",
+    "ReportController - Controller for reports",
+    "documentManage - Document management utilities",
+    "fileManage - File management utilities",
+    "Helpers - Utility functions",
+    "elementsDict - Component definitions",
+    "MetaComponents - Component metadata",
+    "themes - Theme definitions",
+    "generateThemeCSS - Theme CSS generator"
+  ]
+}
